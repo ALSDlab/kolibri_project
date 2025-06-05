@@ -103,7 +103,7 @@ class WebRTCRepositoryImpl implements WebrtcRepository {
   Future<Result<void>> sendIceCandidate(IceCandidateInfoModel candidate) async {
     try {
       _socketDataSource.emit(
-        'iceCandidate',
+        'remoteIceCandidate',
         IceCandidateMapper.toDTO(candidate).toJson(),
       );
       return const Result.success(null);
