@@ -3,8 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:kolibri_project/view/navigation/navigation_bar_page.dart';
 import 'package:kolibri_project/view/navigation/navigation_bar_page_view_model.dart';
 import 'package:kolibri_project/view/pages/splash_page/splash_page.dart';
-import 'package:kolibri_project/view/pages/web_rtc_page/webrtc_page.dart';
-import 'package:kolibri_project/view/pages/web_rtc_page/webrtc_page_view_model.dart';
+import 'package:kolibri_project/view/pages/webrtc_page/webrtc_call_page.dart';
+import 'package:kolibri_project/view/pages/webrtc_page/webrtc_page.dart';
+import 'package:kolibri_project/view/pages/webrtc_page/webrtc_page_view_model.dart';
 import 'package:provider/provider.dart';
 
 import 'di/get_it.dart';
@@ -39,21 +40,17 @@ final router = GoRouter(
     //         builder: (context, state) => const LoginPage(),
     //       ),
     //     ]),
-    // GoRoute(
-    //   path: '/chat_page',
-    //   builder: (context, state) {
-    //     final extra = state.extra! as Map<String, dynamic>;
-    //     return ChangeNotifierProvider(
-    //       create: (_) => getIt<ChatPageViewModel>(),
-    //       child: ChatPage(
-    //         chat: extra['chat'],
-    //         resetNavigation: extra['resetNavigation'],
-    //         resetChatList: extra['resetChatList'],
-    //         isMakeRoom: extra['isMakeRoom'],
-    //       ),
-    //     );
-    //   },
-    // ),
+    GoRoute(
+      path: '/webrtc_call_page',
+      builder: (context, state) {
+        // final extra = state.extra! as Map<String, dynamic>;
+        final viewModel = state.extra as WebRTCViewModel;
+        return ChangeNotifierProvider.value(
+          value: viewModel,
+          child: WebrtcCallPage(),
+        );
+      },
+    ),
     // GoRoute(
     //   path: '/selected_wg_data_page',
     //   builder: (context, state) {

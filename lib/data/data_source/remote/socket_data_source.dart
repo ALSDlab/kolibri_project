@@ -24,19 +24,26 @@ class SocketDataSource {
   final _hangUpController = StreamController<String>.broadcast(); // fromId
   final _refusalController = StreamController<String>.broadcast(); // fromId
   final _controlSignalController =
-  StreamController<ControlSignalDto>.broadcast();
+      StreamController<ControlSignalDto>.broadcast();
   final _connectionStatusController =
-  StreamController<bool>.broadcast(); // true for connected
+      StreamController<bool>.broadcast(); // true for connected
 
   Stream<List<String>> get userListStream => _userListController.stream;
+
   Stream<CallOfferDto> get offerStream => _offerController.stream;
+
   Stream<CallAnswerDto> get answerStream => _answerController.stream;
+
   Stream<IceCandidateDto> get iceCandidateStream =>
       _iceCandidateController.stream;
+
   Stream<String> get hangUpStream => _hangUpController.stream;
+
   Stream<String> get refusalStream => _refusalController.stream;
+
   Stream<ControlSignalDto> get controlSignalStream =>
       _controlSignalController.stream;
+
   Stream<bool> get connectionStatusStream => _connectionStatusController.stream;
 
   Future<String?> connect(String serverUrl) async {
@@ -49,9 +56,11 @@ class SocketDataSource {
     try {
       print('connecting.....${serverUrl}');
       _socket = io.io(
-        serverUrl, // 예: 'http://192.168.0.5:2607'
+        serverUrl,
         io.OptionBuilder()
-            .setTransports(['websocket']) // 웹소켓만 사용. 연결 문제 시 ['polling', 'websocket'] 등으로 테스트해볼 수 있음.
+            .setTransports([
+              'websocket',
+            ]) // 웹소켓만 사용. 연결 문제 시 ['polling', 'websocket'] 등으로 테스트해볼 수 있음.
             .disableAutoConnect() // onConnect 전에 리스너를 설정하기 위해 자동 연결 비활성화
             .build(),
       );
@@ -90,10 +99,14 @@ class SocketDataSource {
             List<String> users = List<String>.from(rawData['userList']);
             _userListController.add(users);
           } catch (e) {
-            debugPrint('[SocketDataSource] Error parsing userList: $e, data: $rawData');
+            debugPrint(
+              '[SocketDataSource] Error parsing userList: $e, data: $rawData',
+            );
           }
         } else {
-          debugPrint('[SocketDataSource] updateUserlist event received with invalid data: $rawData');
+          debugPrint(
+            '[SocketDataSource] updateUserlist event received with invalid data: $rawData',
+          );
         }
       });
 
@@ -102,10 +115,14 @@ class SocketDataSource {
           try {
             _offerController.add(CallOfferDto.fromJson(rawData));
           } catch (e) {
-            debugPrint('[SocketDataSource] Error parsing offer: $e, data: $rawData');
+            debugPrint(
+              '[SocketDataSource] Error parsing offer: $e, data: $rawData',
+            );
           }
         } else {
-          debugPrint('[SocketDataSource] offer event received with invalid data: $rawData');
+          debugPrint(
+            '[SocketDataSource] offer event received with invalid data: $rawData',
+          );
         }
       });
 
@@ -114,10 +131,14 @@ class SocketDataSource {
           try {
             _answerController.add(CallAnswerDto.fromJson(rawData));
           } catch (e) {
-            debugPrint('[SocketDataSource] Error parsing answer: $e, data: $rawData');
+            debugPrint(
+              '[SocketDataSource] Error parsing answer: $e, data: $rawData',
+            );
           }
         } else {
-          debugPrint('[SocketDataSource] answer event received with invalid data: $rawData');
+          debugPrint(
+            '[SocketDataSource] answer event received with invalid data: $rawData',
+          );
         }
       });
 
@@ -126,27 +147,39 @@ class SocketDataSource {
           try {
             _iceCandidateController.add(IceCandidateDto.fromJson(rawData));
           } catch (e) {
-            debugPrint('[SocketDataSource] Error parsing remoteIceCandidate: $e, data: $rawData');
+            debugPrint(
+              '[SocketDataSource] Error parsing remoteIceCandidate: $e, data: $rawData',
+            );
           }
         } else {
-          debugPrint('[SocketDataSource] remoteIceCandidate event received with invalid data: $rawData');
+          debugPrint(
+            '[SocketDataSource] remoteIceCandidate event received with invalid data: $rawData',
+          );
         }
       });
 
       _socket!.on('disconnectPeer', (rawData) {
-        if (rawData is Map<String, dynamic> && rawData.containsKey('from') && rawData['from'] is String) {
+        if (rawData is Map<String, dynamic> &&
+            rawData.containsKey('from') &&
+            rawData['from'] is String) {
           _hangUpController.add(rawData['from'] as String);
         } else {
-          debugPrint('[SocketDataSource] disconnectPeer event received with invalid data: $rawData');
+          debugPrint(
+            '[SocketDataSource] disconnectPeer event received with invalid data: $rawData',
+          );
         }
       });
 
       _socket!.on('refuse', (rawData) {
-        if (rawData is Map<String, dynamic> && rawData.containsKey('from') && rawData['from'] is String) {
+        if (rawData is Map<String, dynamic> &&
+            rawData.containsKey('from') &&
+            rawData['from'] is String) {
           _refusalController.add(rawData['from'] as String);
           // rawData['reason'] 등을 활용하여 UI에 거절 사유 표시 가능
         } else {
-          debugPrint('[SocketDataSource] refuse event received with invalid data: $rawData');
+          debugPrint(
+            '[SocketDataSource] refuse event received with invalid data: $rawData',
+          );
         }
       });
 
@@ -155,16 +188,19 @@ class SocketDataSource {
           try {
             _controlSignalController.add(ControlSignalDto.fromJson(rawData));
           } catch (e) {
-            debugPrint('[SocketDataSource] Error parsing controlSignal: $e, data: $rawData');
+            debugPrint(
+              '[SocketDataSource] Error parsing controlSignal: $e, data: $rawData',
+            );
           }
         } else {
-          debugPrint('[SocketDataSource] controlSignal event received with invalid data: $rawData');
+          debugPrint(
+            '[SocketDataSource] controlSignal event received with invalid data: $rawData',
+          );
         }
       });
 
       // 수동으로 연결 시작
       _socket!.connect();
-
     } catch (e) {
       debugPrint('[SocketDataSource] Exception during socket setup: $e');
       if (!completer.isCompleted) {
@@ -180,7 +216,9 @@ class SocketDataSource {
       _socket!.emit(event, data);
       debugPrint('[SocketDataSource] Emitted $event: $data');
     } else {
-      debugPrint('[SocketDataSource] Cannot emit $event, socket not connected.');
+      debugPrint(
+        '[SocketDataSource] Cannot emit $event, socket not connected.',
+      );
     }
   }
 

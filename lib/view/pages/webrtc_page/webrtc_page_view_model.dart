@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:kolibri_project/data/core/result.dart';
 import 'package:kolibri_project/env/env.dart';
-import 'package:kolibri_project/view/pages/web_rtc_page/webrtc_page_state.dart';
+import 'package:kolibri_project/view/pages/webrtc_page/webrtc_page_state.dart';
 import 'package:vibration/vibration.dart';
 
 import '../../../domain/model/call_answer_model.dart';
@@ -16,24 +16,27 @@ import '../../../domain/repository/webrtc_repository.dart';
 // Import ALL your use cases here...
 import '../../../domain/use_case/webrtc/media_peer_connection/add_ice_candidate_to_peer_use_case.dart';
 import '../../../domain/use_case/webrtc/media_peer_connection/add_track_to_peer_use_case.dart';
-import '../../../domain/use_case/webrtc/signaling/connect_signaling_use_case.dart';
 import '../../../domain/use_case/webrtc/media_peer_connection/create_peer_connection_use_case.dart';
 import '../../../domain/use_case/webrtc/media_peer_connection/create_sdp_answer_use_case.dart';
 import '../../../domain/use_case/webrtc/media_peer_connection/create_sdp_offer_use_case.dart';
-import '../../../domain/use_case/webrtc/signaling/disconnect_signaling_use_case.dart';
 import '../../../domain/use_case/webrtc/media_peer_connection/dispose_peer_connection_use_case.dart';
 import '../../../domain/use_case/webrtc/media_peer_connection/dispose_renderers_use_case.dart';
 import '../../../domain/use_case/webrtc/media_peer_connection/get_local_user_media_use_case.dart';
-import '../../../domain/use_case/webrtc/signaling/get_user_list_stream_usecase.dart';
 import '../../../domain/use_case/webrtc/media_peer_connection/initialize_renderers_use_case.dart';
-import '../../../domain/use_case/webrtc/signaling/listen_answer_use_case.dart';
 import '../../../domain/use_case/webrtc/media_peer_connection/listen_connection_state_use_case.dart';
+import '../../../domain/use_case/webrtc/media_peer_connection/listen_on_ice_candidate_generated_use_case.dart';
+import '../../../domain/use_case/webrtc/media_peer_connection/listen_on_track_use_case.dart';
+import '../../../domain/use_case/webrtc/media_peer_connection/set_local_description_use_case.dart';
+import '../../../domain/use_case/webrtc/media_peer_connection/set_remote_description_use_case.dart';
+import '../../../domain/use_case/webrtc/media_peer_connection/turn_off_local_media_use_case.dart';
+import '../../../domain/use_case/webrtc/signaling/connect_signaling_use_case.dart';
+import '../../../domain/use_case/webrtc/signaling/disconnect_signaling_use_case.dart';
+import '../../../domain/use_case/webrtc/signaling/get_user_list_stream_usecase.dart';
+import '../../../domain/use_case/webrtc/signaling/listen_answer_use_case.dart';
 import '../../../domain/use_case/webrtc/signaling/listen_control_signal_use_case.dart';
 import '../../../domain/use_case/webrtc/signaling/listen_hang_up_use_case.dart';
 import '../../../domain/use_case/webrtc/signaling/listen_ice_candidate_use_case.dart';
 import '../../../domain/use_case/webrtc/signaling/listen_offer_use_case.dart';
-import '../../../domain/use_case/webrtc/media_peer_connection/listen_on_ice_candidate_generated_use_case.dart';
-import '../../../domain/use_case/webrtc/media_peer_connection/listen_on_track_use_case.dart';
 import '../../../domain/use_case/webrtc/signaling/listen_refusal_use_case.dart';
 import '../../../domain/use_case/webrtc/signaling/send_answer_use_case.dart';
 import '../../../domain/use_case/webrtc/signaling/send_control_signal_use_case.dart';
@@ -41,9 +44,6 @@ import '../../../domain/use_case/webrtc/signaling/send_hang_up_use_case.dart';
 import '../../../domain/use_case/webrtc/signaling/send_ice_candidate_use_case.dart';
 import '../../../domain/use_case/webrtc/signaling/send_offer_use_case.dart';
 import '../../../domain/use_case/webrtc/signaling/send_refusal_use_case.dart';
-import '../../../domain/use_case/webrtc/media_peer_connection/set_local_description_use_case.dart';
-import '../../../domain/use_case/webrtc/media_peer_connection/set_remote_description_use_case.dart';
-import '../../../domain/use_case/webrtc/media_peer_connection/turn_off_local_media_use_case.dart';
 
 class WebRTCViewModel extends ChangeNotifier {
   // Use Cases
@@ -456,6 +456,10 @@ class WebRTCViewModel extends ChangeNotifier {
     final result = await _sendOfferUseCase.call(offerModel);
     switch (result) {
       case Success<void>():
+        // 통화 제안(Offer)이 성공적으로 전송되었습니다.
+        // 아무것도 하지 않고 상대방의 응답(Answer)을 기다립니다.
+        debugPrint("[ViewModel] Offer sent successfully to $toId");
+        break;
       case Error<void>():
         _updateState(
           _state.copyWith(
@@ -465,6 +469,7 @@ class WebRTCViewModel extends ChangeNotifier {
           ),
         );
         _resetCallState();
+        break;
     }
   }
 

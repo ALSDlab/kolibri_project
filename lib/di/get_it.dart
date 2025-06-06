@@ -35,7 +35,7 @@ import '../domain/use_case/webrtc/signaling/send_ice_candidate_use_case.dart';
 import '../domain/use_case/webrtc/signaling/send_offer_use_case.dart';
 import '../domain/use_case/webrtc/signaling/send_refusal_use_case.dart';
 import '../view/navigation/navigation_bar_page_view_model.dart';
-import '../view/pages/web_rtc_page/webrtc_page_view_model.dart';
+import '../view/pages/webrtc_page/webrtc_page_view_model.dart';
 
 // import '../view/navigation/navigation_bar_page_view_model.dart';
 
