@@ -52,7 +52,8 @@ io.on('connection', (socket) => {
     console.log('ICE candidate from', data.from, 'to', data.to);
     if (data.to) {
       // 클라이언트 측 리스너 이름이 'remoteIceCandidate'이므로 이에 맞춤
-      socket.to(data.to).emit('remoteIceCandidate', data);
+      const payload = { ...data, from: socket.id };
+      socket.to(data.to).emit('remoteIceCandidate', payload);
     } else {
       console.warn('iceCandidate event received without "to" field:', data);
     }
@@ -87,7 +88,8 @@ io.on('connection', (socket) => {
     // data should be ControlSignalDto: { from: string, to: string, signal: any }
     console.log('Control signal to', data.to, 'signal:', data.signal);
     if (data.to) {
-      socket.to(data.to).emit('controlSignal', data);
+      const payload = { ...data, from: socket.id };
+      socket.to(data.to).emit('controlSignal', payload);
     } else {
       console.warn('Control signal event received without "to" field:', data);
     }
