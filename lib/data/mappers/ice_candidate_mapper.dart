@@ -7,7 +7,7 @@ class IceCandidateMapper {
       candidate: dto.candidate ?? '',
       sdpMid: dto.sdpMid ?? '',
       sdpMLineIndex: dto.sdpMLineIndex ?? 0,
-      to: dto.to ?? '',
+      to: dto.to ?? '', from: dto.from ?? '',
     );
   }
 
@@ -17,6 +17,7 @@ class IceCandidateMapper {
       sdpMid: model.sdpMid,
       sdpMLineIndex: model.sdpMLineIndex,
       to: model.to,
+      from: model.from,
     );
   }
 }

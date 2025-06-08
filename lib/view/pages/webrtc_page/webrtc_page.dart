@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_webrtc/flutter_webrtc.dart'; // For RTCVideoView
 import 'package:go_router/go_router.dart';
 import 'package:kolibri_project/view/pages/webrtc_page/webrtc_page_state.dart';
 import 'package:kolibri_project/view/pages/webrtc_page/webrtc_page_view_model.dart';
@@ -13,14 +12,6 @@ class WebrtcPage extends StatefulWidget {
 }
 
 class _WebrtcPageState extends State<WebrtcPage> {
-  // @override
-  // void didChangeDependencies() {
-  //   super.didChangeDependencies();
-  //   // Access viewModel here if it's the first time or if dependencies change
-  //   // For simplicity, assuming it's already provided by Provider correctly
-  //   _viewModel = Provider.of<WebRTCViewModel>(context, listen: false);
-  // }
-
   @override
   Widget build(BuildContext context) {
     // Use Consumer for parts of the UI that need to rebuild when ViewModel notifies listeners
@@ -28,230 +19,128 @@ class _WebrtcPageState extends State<WebrtcPage> {
     final state = viewModel.state;
     Widget body;
     String appBarTitle = "WebRTC Demo";
-    bool showFab = false;
 
     switch (state.screenState) {
       case AppScreenState.initial:
       case AppScreenState.loading:
+        appBarTitle = "Connecting to Signaling Server...";
         body = const Center(child: CircularProgressIndicator());
-        appBarTitle = "Connecting...";
         break;
       case AppScreenState.lobby:
-        body = _buildLobby(viewModel);
-        appBarTitle = "Online Users (My ID: ${state.myId ?? 'N/A'})";
-        showFab = state.selectedUserForCall != null;
+        appBarTitle = "Lobby (${state.myId ?? 'N/A'})";
+        body = Column(
+          children: [
+            if (state.errorMessage != null)
+              Container(
+                padding: const EdgeInsets.all(8),
+                color: Colors.red.withOpacity(0.7),
+                child: Text(
+                  state.errorMessage!,
+                  style: const TextStyle(color: Colors.white),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            Expanded(
+              child: state.onlineUsers.isEmpty
+                  ? const Center(
+                      child: Text(
+                        "No other users online. Open another instance to call.",
+                        style: TextStyle(fontSize: 16),
+                        textAlign: TextAlign.center,
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: state.onlineUsers.length,
+                      itemBuilder: (context, index) {
+                        final user = state.onlineUsers[index];
+                        return Card(
+                          margin: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          child: ListTile(
+                            title: Text(user.id),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.call,
+                                    color: Colors.green,
+                                  ),
+                                  onPressed: () async {
+                                    await viewModel.callUser(
+                                      user,
+                                      audioOnly: true,
+                                    );
+                                    if (context.mounted) {
+                                      _navigateToCallView(context, viewModel);
+                                    }
+                                  },
+                                  tooltip: 'Audio Call',
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.video_call,
+                                    color: Colors.blue,
+                                  ),
+                                  onPressed: () async {
+                                    await viewModel.callUser(
+                                      user,
+                                      audioOnly: false,
+                                    );
+                                    if (context.mounted) {
+                                      _navigateToCallView(context, viewModel);
+                                    }
+                                  },
+                                  tooltip: 'Video Call',
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        );
         break;
       case AppScreenState.incomingCall:
-        body = _buildIncomingCallScreen(viewModel, context);
-        appBarTitle = "Incoming Call"; // Title managed within the screen
-        break;
-      case AppScreenState.inCall:
-        // This case should ideally not be directly built here.
-        // Navigation to CallView happens when state transitions to inCall.
-        // If we somehow land here, it's likely a state issue or post-navigation.
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (ModalRoute.of(context)?.isCurrent ?? false) {
-            _navigateToCallView(context, viewModel);
-          }
-        });
-        body = const Center(child: Text("Navigating to call..."));
-        break;
-      case AppScreenState.error:
+        appBarTitle = "Incoming Call";
         body = Center(
-          child: Text(
-            "Error: ${viewModel.state.errorMessage ?? 'Unknown error'}",
-          ),
-        );
-        appBarTitle = "Error";
-        break;
-    }
-
-    // Show error messages if any, regardless of screen state (optional)
-    if (viewModel.state.errorMessage != null &&
-        state.screenState != AppScreenState.error) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          // Ensure widget is still in the tree
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(viewModel.state.errorMessage!),
-              duration: const Duration(seconds: 3),
-            ),
-          );
-          // Consider clearing the error message in viewModel after showing it
-          // viewModel.clearErrorMessage();
-        }
-      });
-    }
-    return Scaffold(
-      appBar:
-          (state.screenState == AppScreenState.lobby ||
-              state.screenState == AppScreenState.error ||
-              state.screenState == AppScreenState.loading)
-          ? AppBar(title: Text(appBarTitle))
-          : null, // No AppBar for incoming call or during call setup
-      body: body,
-      floatingActionButton: showFab && state.screenState == AppScreenState.lobby
-          ? Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                FloatingActionButton.small(
-                  heroTag: 'videoCallBtn',
-                  onPressed: () async {
-                    await viewModel.initiateCall(audioOnly: false);
-                    // Navigation is handled by state change or can be explicit
-                    if (viewModel.state.screenState == AppScreenState.inCall) {
-                      _navigateToCallView(context, viewModel);
-                    }
-                  },
-                  tooltip: "Video Call",
-                  child: const Icon(Icons.videocam),
-                ),
-                const SizedBox(height: 8),
-                FloatingActionButton.small(
-                  heroTag: 'audioCallBtn',
-                  onPressed: () async {
-                    await viewModel.initiateCall(audioOnly: true);
-                    if (viewModel.state.screenState == AppScreenState.inCall) {
-                      _navigateToCallView(context, viewModel);
-                    }
-                  },
-                  tooltip: "Audio Call",
-                  child: const Icon(Icons.call),
-                ),
-              ],
-            )
-          : null,
-    );
-  }
-
-  Widget _buildLobby(WebRTCViewModel viewModel) {
-    final users = viewModel.state.onlineUsers;
-    final selectedUser = viewModel.state.selectedUserForCall;
-
-    if (users.isEmpty) {
-      return const Center(child: Text("No other users online."));
-    }
-    return ListView.builder(
-      itemCount: users.length,
-      itemBuilder: (context, index) {
-        final user = users[index];
-        return ListTile(
-          title: Text(user.id),
-          // subtitle: Text(user.name ?? 'Unknown Name'), // If you add name to PeerUserModel
-          selected: selectedUser?.id == user.id,
-          selectedTileColor: Colors.blue.withOpacity(0.2),
-          onTap: () {
-            viewModel.selectUserForCall(user);
-          },
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                icon: Icon(
-                  Icons.videocam,
-                  color: selectedUser?.id == user.id
-                      ? Theme.of(context).colorScheme.primary
-                      : Colors.grey,
-                ),
-                tooltip: "Video call ${user.id}",
-                onPressed: () async {
-                  viewModel.selectUserForCall(user); // Ensure user is selected
-                  await viewModel.initiateCall(audioOnly: false);
-                  if (viewModel.state.screenState == AppScreenState.inCall) {
-                    // ignore: use_build_context_synchronously
-                    _navigateToCallView(context, viewModel);
-                  }
-                },
-              ),
-              IconButton(
-                icon: Icon(
-                  Icons.call,
-                  color: selectedUser?.id == user.id
-                      ? Theme.of(context).colorScheme.secondary
-                      : Colors.grey,
-                ),
-                tooltip: "Audio call ${user.id}",
-                onPressed: () async {
-                  viewModel.selectUserForCall(user); // Ensure user is selected
-                  await viewModel.initiateCall(audioOnly: true);
-                  if (viewModel.state.screenState == AppScreenState.inCall) {
-                    // ignore: use_build_context_synchronously
-                    _navigateToCallView(context, viewModel);
-                  }
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildIncomingCallScreen(
-    WebRTCViewModel viewModel,
-    BuildContext context,
-  ) {
-    final incomingOffer = viewModel.state.incomingOffer;
-    if (incomingOffer == null) {
-      // This should not happen if screenState is incomingCall
-      return const Center(child: Text("Error: No incoming call data."));
-    }
-    return Center(
-      child: Card(
-        elevation: 8.0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16.0),
-        ),
-        margin: const EdgeInsets.all(24.0),
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
               Text(
-                'Incoming ${viewModel.state.audioOnlyCall ? "Audio" : "Video"} Call from',
-                style: Theme.of(context).textTheme.headlineSmall,
+                "Incoming ${state.audioOnlyCall ? 'Audio' : 'Video'} Call from:",
+                style: const TextStyle(fontSize: 20),
+                textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               Text(
-                incomingOffer.fromId,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                state.incomingOffer?.fromId ?? 'Unknown',
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 24),
-              // Optionally show a small preview of local camera if on
-              if (viewModel.state.localVideoEnabled &&
-                  viewModel.localRenderer.textureId != null &&
-                  !viewModel.state.audioOnlyCall)
-                SizedBox(
-                  height: 100,
-                  width: 75,
-                  child: RTCVideoView(
-                    viewModel.localRenderer,
-                    objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
-                    mirror: true,
-                  ),
-                )
-              else if (!viewModel.state.audioOnlyCall)
-                const Icon(Icons.videocam_off, size: 50, color: Colors.grey)
-              else
-                const Icon(Icons.call_received, size: 50, color: Colors.blue),
-              const SizedBox(height: 24),
+              const SizedBox(height: 30),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: <Widget>[
+                children: [
                   FloatingActionButton(
-                    heroTag: 'rejectCallBtnMain',
-                    onPressed: viewModel.rejectCall,
+                    heroTag: "refuseCallBtn",
+                    onPressed: () async {
+                      await viewModel.refuseIncomingCall();
+                    },
                     backgroundColor: Colors.red,
                     child: const Icon(Icons.call_end, color: Colors.white),
                   ),
                   FloatingActionButton(
-                    heroTag: 'answerCallBtnMain',
+                    heroTag: "acceptCallBtn",
                     onPressed: () async {
-                      await viewModel.answerCall();
+                      await viewModel.acceptIncomingCall();
                       if (viewModel.state.screenState ==
                           AppScreenState.inCall) {
                         // ignore: use_build_context_synchronously
@@ -270,25 +159,77 @@ class _WebrtcPageState extends State<WebrtcPage> {
               ),
             ],
           ),
+        );
+        break;
+      case AppScreenState.inCall:
+        appBarTitle = "In Call with ${state.remotePeerId ?? 'N/A'}";
+        body = const Center(child: Text("Call in progress..."));
+        break;
+      case AppScreenState.error:
+        appBarTitle = "Error";
+        body = Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error, color: Colors.red, size: 60),
+              const SizedBox(height: 20),
+              Text(
+                state.errorMessage ?? "An unknown error occurred.",
+                style: const TextStyle(color: Colors.red, fontSize: 18),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () {
+                  viewModel.init(); // Retry connection
+                },
+                child: const Text("Reconnect"),
+              ),
+            ],
+          ),
+        );
+        break;
+    }
+
+    return PopScope(
+      // Use PopScope instead of WillPopScope
+      canPop: true, // Allow popping from lobby/error states
+      onPopInvoked: (didPop) async {
+        if (didPop && state.screenState == AppScreenState.inCall) {
+          // If we are in call, prevent pop and handle it.
+          // This should ideally not happen if navigation is handled correctly.
+          await viewModel.hangUp(); // Force hang up if tried to pop during call
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(appBarTitle),
+          actions: [
+            if (state.screenState == AppScreenState.lobby)
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                onPressed: () => viewModel.init(),
+              ),
+          ],
         ),
+        body: body,
       ),
     );
   }
 
   void _navigateToCallView(BuildContext context, WebRTCViewModel viewModel) {
-    if (ModalRoute.of(context)?.isCurrent ?? false) {
-      // Ensure current view is active
-      context.push('/webrtc_call_page', extra: viewModel).then((_) {
+    // Check if the current route is not already WebrtcCallPage
+    // This prevents pushing the same route multiple times
+    if (ModalRoute.of(context)?.settings.name != '/webrtc_call_page') {
+      context.push('/webrtc_call_page', extra: viewModel).then((_) async {
         // This block executes when WebRTCCallView is popped.
-        // ViewModel's endCall should have reset the state.
-        // If somehow the state is still inCall, force it back to lobby.
+        // ViewModel's endCall should have reset the state if call ended gracefully.
+        // If somehow the state is still inCall, force it back to lobby/initial.
         if (viewModel.state.screenState == AppScreenState.inCall) {
           debugPrint(
-            "[WebRTCMainView] Returned from CallView but state is still inCall. Forcing endCall.",
+            "[WebRTCMainView] Returned from CallView but state is still inCall. Forcing hangUp.",
           );
-          viewModel.endCall(
-            isRemoteHangup: true,
-          ); // Assume it was a remote hangup or error
+          await viewModel.hangUp(); // Assume it was a remote hangup or error
         }
       });
     }

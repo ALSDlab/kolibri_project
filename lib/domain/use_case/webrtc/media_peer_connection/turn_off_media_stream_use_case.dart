@@ -1,20 +1,20 @@
-// domain/use_case/webrtc/media_peer_connection/add_ice_candidate_to_peer_use_case.dart
+// domain/use_case/webrtc/media_peer_connection/turn_off_media_stream_use_case.dart
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:kolibri_project/data/core/result.dart';
 
 import '../../../repository/webrtc_repository.dart';
 
-class AddIceCandidateToPeerUseCase {
+class TurnOffMediaStreamUseCase {
   final WebRTCRepository _repository;
 
-  AddIceCandidateToPeerUseCase(this._repository);
+  TurnOffMediaStreamUseCase(this._repository);
 
   Future<Result<void>> call(
-    RTCIceCandidate candidate,
-    RTCPeerConnection peerConnection,
+    MediaStream? stream,
+    RTCVideoRenderer localRenderer,
   ) async {
     try {
-      await _repository.addingIceCandidate(candidate, peerConnection);
+      await _repository.turnOffMediaStream(stream, localRenderer);
       return const Success(null);
     } catch (e) {
       return Error(e.toString());

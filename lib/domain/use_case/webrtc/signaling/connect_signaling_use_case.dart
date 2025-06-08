@@ -1,13 +1,16 @@
-import '../../../../data/core/result.dart';
+// domain/use_case/webrtc/signaling/connect_signaling_use_case.dart
+import 'dart:async';
+
+import 'package:kolibri_project/data/core/result.dart';
+
 import '../../../repository/webrtc_repository.dart';
 
 class ConnectSignalingUseCase {
-  final WebrtcRepository _repository;
+  final WebRTCRepository _repository;
 
-  ConnectSignalingUseCase({required WebrtcRepository chatDataRepository})
-    : _repository = chatDataRepository;
+  ConnectSignalingUseCase(this._repository);
 
-  Future<Result<String>> call(String serverUrl) {
-    return _repository.connectSignaling(serverUrl);
+  Stream<Result<String>> call(String url) {
+    return _repository.connectSignaling(url);
   }
 }

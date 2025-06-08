@@ -46,71 +46,59 @@ class SocketDataSource {
 
   Stream<bool> get connectionStatusStream => _connectionStatusController.stream;
 
-  Future<String?> connect(String serverUrl) async {
-    if (_socket?.connected == true) {
-      _connectionStatusController.add(true);
-      return _currentUserId;
-    }
-    final Completer<String?> completer = Completer<String?>();
-
+  Future<String> connect(String url) async {
+    final Completer<String> completer = Completer<String>();
     try {
-      print('connecting.....${serverUrl}');
       _socket = io.io(
-        serverUrl,
-        io.OptionBuilder()
-            .setTransports([
-              'websocket',
-            ]) // 웹소켓만 사용. 연결 문제 시 ['polling', 'websocket'] 등으로 테스트해볼 수 있음.
-            .disableAutoConnect() // onConnect 전에 리스너를 설정하기 위해 자동 연결 비활성화
-            .build(),
+        url,
+        io.OptionBuilder().setTransports(['websocket']).build(),
       );
 
-      // 이벤트 리스너 설정
       _socket!.onConnect((_) {
         _currentUserId = _socket!.id;
-        _connectionStatusController.add(true);
         debugPrint('[SocketDataSource] Connected: $_currentUserId');
-        if (!completer.isCompleted) completer.complete(_currentUserId);
+        _connectionStatusController.add(true);
+        if (!completer.isCompleted) {
+          completer.complete(_currentUserId!);
+        }
       });
 
       _socket!.onConnectError((data) {
-        _connectionStatusController.add(false);
         debugPrint('[SocketDataSource] Connect Error: $data');
+        _connectionStatusController.add(false);
         if (!completer.isCompleted) {
-          completer.completeError(Exception("Connection Error: $data"));
+          completer.completeError("Socket connection error: $data");
         }
       });
 
       _socket!.onError((data) {
-        // 이 onError는 연결 후 발생하는 일반적인 소켓 오류를 처리할 수 있습니다.
         debugPrint('[SocketDataSource] Error: $data');
-        // 필요에 따라 _connectionStatusController.add(false) 또는 다른 오류 처리 로직 추가
-      });
-
-      _socket!.onDisconnect((data) {
         _connectionStatusController.add(false);
-        debugPrint('[SocketDataSource] Disconnected: $data');
-        _currentUserId = null;
-      });
-
-      _socket!.on('updateUserlist', (rawData) {
-        if (rawData is Map<String, dynamic> && rawData['userList'] != null) {
-          try {
-            List<String> users = List<String>.from(rawData['userList']);
-            _userListController.add(users);
-          } catch (e) {
-            debugPrint(
-              '[SocketDataSource] Error parsing userList: $e, data: $rawData',
-            );
-          }
-        } else {
-          debugPrint(
-            '[SocketDataSource] updateUserlist event received with invalid data: $rawData',
-          );
+        if (!completer.isCompleted) {
+          completer.completeError("Socket error: $data");
         }
       });
 
+      _socket!.onDisconnect((data) {
+        debugPrint('[SocketDataSource] Disconnected: $data');
+        _connectionStatusController.add(false);
+      });
+
+      // 유저 리스트 업데이트 수신 - 서버에서 보내는 구조에 맞게 수정
+      _socket!.on('updateUserlist', (data) {
+        debugPrint('[SocketDataSource] Received userlist update: $data');
+        if (data is Map<String, dynamic> && data['userList'] != null) {
+          final List<String> users = (data['userList'] as List<dynamic>)
+              .map((e) => e.toString())
+              .where((userId) => userId != _currentUserId) // 본인 제외
+              .toList();
+          _userListController.add(users);
+        }
+      });
+
+      // Offer 수신
       _socket!.on('offer', (rawData) {
+        debugPrint('[SocketDataSource] Received offer: $rawData');
         if (rawData is Map<String, dynamic>) {
           try {
             _offerController.add(CallOfferDto.fromJson(rawData));
@@ -119,14 +107,12 @@ class SocketDataSource {
               '[SocketDataSource] Error parsing offer: $e, data: $rawData',
             );
           }
-        } else {
-          debugPrint(
-            '[SocketDataSource] offer event received with invalid data: $rawData',
-          );
         }
       });
 
+      // Answer 수신
       _socket!.on('answer', (rawData) {
+        debugPrint('[SocketDataSource] Received answer: $rawData');
         if (rawData is Map<String, dynamic>) {
           try {
             _answerController.add(CallAnswerDto.fromJson(rawData));
@@ -135,34 +121,28 @@ class SocketDataSource {
               '[SocketDataSource] Error parsing answer: $e, data: $rawData',
             );
           }
-        } else {
-          debugPrint(
-            '[SocketDataSource] answer event received with invalid data: $rawData',
-          );
         }
       });
 
+      // ICE Candidate 수신
       _socket!.on('remoteIceCandidate', (rawData) {
+        debugPrint('[SocketDataSource] Received ICE candidate: $rawData');
         if (rawData is Map<String, dynamic>) {
           try {
             _iceCandidateController.add(IceCandidateDto.fromJson(rawData));
           } catch (e) {
             debugPrint(
-              '[SocketDataSource] Error parsing remoteIceCandidate: $e, data: $rawData',
+              '[SocketDataSource] Error parsing iceCandidate: $e, data: $rawData',
             );
           }
-        } else {
-          debugPrint(
-            '[SocketDataSource] remoteIceCandidate event received with invalid data: $rawData',
-          );
         }
       });
 
+      // 통화 종료 수신 - 서버의 disconnectPeer 이벤트에 맞춤
       _socket!.on('disconnectPeer', (rawData) {
-        if (rawData is Map<String, dynamic> &&
-            rawData.containsKey('from') &&
-            rawData['from'] is String) {
-          _hangUpController.add(rawData['from'] as String);
+        debugPrint('[SocketDataSource] Received disconnectPeer: $rawData');
+        if (rawData is Map<String, dynamic> && rawData.containsKey('from')) {
+          _hangUpController.add(rawData['from'].toString());
         } else {
           debugPrint(
             '[SocketDataSource] disconnectPeer event received with invalid data: $rawData',
@@ -170,12 +150,11 @@ class SocketDataSource {
         }
       });
 
+      // 통화 거절 수신
       _socket!.on('refuse', (rawData) {
-        if (rawData is Map<String, dynamic> &&
-            rawData.containsKey('from') &&
-            rawData['from'] is String) {
-          _refusalController.add(rawData['from'] as String);
-          // rawData['reason'] 등을 활용하여 UI에 거절 사유 표시 가능
+        debugPrint('[SocketDataSource] Received refuse: $rawData');
+        if (rawData is Map<String, dynamic> && rawData.containsKey('from')) {
+          _refusalController.add(rawData['from'].toString());
         } else {
           debugPrint(
             '[SocketDataSource] refuse event received with invalid data: $rawData',
@@ -183,7 +162,9 @@ class SocketDataSource {
         }
       });
 
+      // Control Signal 수신
       _socket!.on('controlSignal', (rawData) {
+        debugPrint('[SocketDataSource] Received controlSignal: $rawData');
         if (rawData is Map<String, dynamic>) {
           try {
             _controlSignalController.add(ControlSignalDto.fromJson(rawData));
@@ -211,6 +192,92 @@ class SocketDataSource {
     return completer.future;
   }
 
+  // Offer 전송 - 서버가 기대하는 필드명 사용
+  void sendOffer(CallOfferDto offer) {
+    if (_socket?.connected == true) {
+      final data = offer.toJson();
+      _socket!.emit('offer', data);
+      debugPrint('[SocketDataSource] Sent offer: $data');
+    } else {
+      debugPrint('[SocketDataSource] Cannot send offer, socket not connected.');
+    }
+  }
+
+  // Answer 전송 - 서버가 기대하는 필드명 사용
+  void sendAnswer(CallAnswerDto answer) {
+    if (_socket?.connected == true) {
+      final data = answer.toJson();
+      _socket!.emit('answer', data);
+      debugPrint('[SocketDataSource] Sent answer: $data');
+    } else {
+      debugPrint(
+        '[SocketDataSource] Cannot send answer, socket not connected.',
+      );
+    }
+  }
+
+  // ICE Candidate 전송 - 서버가 기대하는 필드명 사용
+  void sendIceCandidate(IceCandidateDto candidate) {
+    if (_socket?.connected == true) {
+      final data = {
+        'from': _currentUserId,
+        'to': candidate.to,
+        'candidate': candidate.candidate,
+      };
+      _socket!.emit('remoteIceCandidate', data);
+      debugPrint('[SocketDataSource] Sent ICE candidate: $data');
+    } else {
+      debugPrint(
+        '[SocketDataSource] Cannot send ICE candidate, socket not connected.',
+      );
+    }
+  }
+
+  // 통화 거절 전송
+  void sendRefuse(String toId, {String? reason}) {
+    if (_socket?.connected == true) {
+      final data = {'to': toId, 'reason': reason};
+      _socket!.emit('refuse', data);
+      debugPrint('[SocketDataSource] Sent refuse: $data');
+    } else {
+      debugPrint(
+        '[SocketDataSource] Cannot send refuse, socket not connected.',
+      );
+    }
+  }
+
+  // 통화 종료 전송
+  void sendDisconnectPeer(String toId) {
+    if (_socket?.connected == true) {
+      final data = {'to': toId};
+      _socket!.emit('disconnectPeer', data);
+      debugPrint('[SocketDataSource] Sent disconnectPeer: $data');
+    } else {
+      debugPrint(
+        '[SocketDataSource] Cannot send disconnectPeer, socket not connected.',
+      );
+    }
+  }
+
+  // Control Signal 전송
+  void sendControlSignal(ControlSignalDto signal) {
+    if (_socket?.connected == true) {
+      final data = {
+        'from': _currentUserId,
+        'to': signal.to,
+        'signal':
+            '${signal.type}: ${signal.dx}, ${signal.dy}, ${signal.angle}, ${signal.scale}',
+      };
+      _socket!.emit('controlSignal', data);
+      debugPrint('[SocketDataSource] Sent controlSignal: $data');
+    } else {
+      debugPrint(
+        '[SocketDataSource] Cannot send controlSignal, socket not connected.',
+      );
+    }
+  }
+
+  // 범용 emit 메서드 (기존 코드와의 호환성을 위해 유지)
   void emit(String event, dynamic data) {
     if (_socket?.connected == true) {
       _socket!.emit(event, data);
@@ -231,7 +298,7 @@ class SocketDataSource {
     _refusalController.close();
     _controlSignalController.close();
     _connectionStatusController.close();
+    _socket?.disconnect();
     _socket?.dispose();
-    debugPrint('[SocketDataSource] Disposed');
   }
 }

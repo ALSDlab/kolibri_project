@@ -23,7 +23,7 @@ IceCandidateInfoModel _$IceCandidateInfoModelFromJson(
 /// @nodoc
 mixin _$IceCandidateInfoModel {
 
-@JsonKey(name: 'candidate') String get candidate;@JsonKey(name: 'sdpMid') String get sdpMid;@JsonKey(name: 'sdpMLineIndex') int get sdpMLineIndex;@JsonKey(name: 'to') String get to;
+@JsonKey(name: 'from') String get from;@JsonKey(name: 'to') String get to;@JsonKey(name: 'candidate') String get candidate;@JsonKey(name: 'sdpMid') String get sdpMid;@JsonKey(name: 'sdpMLineIndex') int get sdpMLineIndex;
 /// Create a copy of IceCandidateInfoModel
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -36,16 +36,16 @@ $IceCandidateInfoModelCopyWith<IceCandidateInfoModel> get copyWith => _$IceCandi
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is IceCandidateInfoModel&&(identical(other.candidate, candidate) || other.candidate == candidate)&&(identical(other.sdpMid, sdpMid) || other.sdpMid == sdpMid)&&(identical(other.sdpMLineIndex, sdpMLineIndex) || other.sdpMLineIndex == sdpMLineIndex)&&(identical(other.to, to) || other.to == to));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is IceCandidateInfoModel&&(identical(other.from, from) || other.from == from)&&(identical(other.to, to) || other.to == to)&&(identical(other.candidate, candidate) || other.candidate == candidate)&&(identical(other.sdpMid, sdpMid) || other.sdpMid == sdpMid)&&(identical(other.sdpMLineIndex, sdpMLineIndex) || other.sdpMLineIndex == sdpMLineIndex));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,candidate,sdpMid,sdpMLineIndex,to);
+int get hashCode => Object.hash(runtimeType,from,to,candidate,sdpMid,sdpMLineIndex);
 
 @override
 String toString() {
-  return 'IceCandidateInfoModel(candidate: $candidate, sdpMid: $sdpMid, sdpMLineIndex: $sdpMLineIndex, to: $to)';
+  return 'IceCandidateInfoModel(from: $from, to: $to, candidate: $candidate, sdpMid: $sdpMid, sdpMLineIndex: $sdpMLineIndex)';
 }
 
 
@@ -56,7 +56,7 @@ abstract mixin class $IceCandidateInfoModelCopyWith<$Res>  {
   factory $IceCandidateInfoModelCopyWith(IceCandidateInfoModel value, $Res Function(IceCandidateInfoModel) _then) = _$IceCandidateInfoModelCopyWithImpl;
 @useResult
 $Res call({
-@JsonKey(name: 'candidate') String candidate,@JsonKey(name: 'sdpMid') String sdpMid,@JsonKey(name: 'sdpMLineIndex') int sdpMLineIndex,@JsonKey(name: 'to') String to
+@JsonKey(name: 'from') String from,@JsonKey(name: 'to') String to,@JsonKey(name: 'candidate') String candidate,@JsonKey(name: 'sdpMid') String sdpMid,@JsonKey(name: 'sdpMLineIndex') int sdpMLineIndex
 });
 
 
@@ -73,13 +73,14 @@ class _$IceCandidateInfoModelCopyWithImpl<$Res>
 
 /// Create a copy of IceCandidateInfoModel
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? candidate = null,Object? sdpMid = null,Object? sdpMLineIndex = null,Object? to = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? from = null,Object? to = null,Object? candidate = null,Object? sdpMid = null,Object? sdpMLineIndex = null,}) {
   return _then(_self.copyWith(
-candidate: null == candidate ? _self.candidate : candidate // ignore: cast_nullable_to_non_nullable
+from: null == from ? _self.from : from // ignore: cast_nullable_to_non_nullable
+as String,to: null == to ? _self.to : to // ignore: cast_nullable_to_non_nullable
+as String,candidate: null == candidate ? _self.candidate : candidate // ignore: cast_nullable_to_non_nullable
 as String,sdpMid: null == sdpMid ? _self.sdpMid : sdpMid // ignore: cast_nullable_to_non_nullable
 as String,sdpMLineIndex: null == sdpMLineIndex ? _self.sdpMLineIndex : sdpMLineIndex // ignore: cast_nullable_to_non_nullable
-as int,to: null == to ? _self.to : to // ignore: cast_nullable_to_non_nullable
-as String,
+as int,
   ));
 }
 
@@ -90,13 +91,14 @@ as String,
 @JsonSerializable()
 
 class _IceCandidateModel implements IceCandidateInfoModel {
-  const _IceCandidateModel({@JsonKey(name: 'candidate') required this.candidate, @JsonKey(name: 'sdpMid') required this.sdpMid, @JsonKey(name: 'sdpMLineIndex') required this.sdpMLineIndex, @JsonKey(name: 'to') required this.to});
+  const _IceCandidateModel({@JsonKey(name: 'from') required this.from, @JsonKey(name: 'to') required this.to, @JsonKey(name: 'candidate') required this.candidate, @JsonKey(name: 'sdpMid') required this.sdpMid, @JsonKey(name: 'sdpMLineIndex') required this.sdpMLineIndex});
   factory _IceCandidateModel.fromJson(Map<String, dynamic> json) => _$IceCandidateModelFromJson(json);
 
+@override@JsonKey(name: 'from') final  String from;
+@override@JsonKey(name: 'to') final  String to;
 @override@JsonKey(name: 'candidate') final  String candidate;
 @override@JsonKey(name: 'sdpMid') final  String sdpMid;
 @override@JsonKey(name: 'sdpMLineIndex') final  int sdpMLineIndex;
-@override@JsonKey(name: 'to') final  String to;
 
 /// Create a copy of IceCandidateInfoModel
 /// with the given fields replaced by the non-null parameter values.
@@ -111,16 +113,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _IceCandidateModel&&(identical(other.candidate, candidate) || other.candidate == candidate)&&(identical(other.sdpMid, sdpMid) || other.sdpMid == sdpMid)&&(identical(other.sdpMLineIndex, sdpMLineIndex) || other.sdpMLineIndex == sdpMLineIndex)&&(identical(other.to, to) || other.to == to));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _IceCandidateModel&&(identical(other.from, from) || other.from == from)&&(identical(other.to, to) || other.to == to)&&(identical(other.candidate, candidate) || other.candidate == candidate)&&(identical(other.sdpMid, sdpMid) || other.sdpMid == sdpMid)&&(identical(other.sdpMLineIndex, sdpMLineIndex) || other.sdpMLineIndex == sdpMLineIndex));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,candidate,sdpMid,sdpMLineIndex,to);
+int get hashCode => Object.hash(runtimeType,from,to,candidate,sdpMid,sdpMLineIndex);
 
 @override
 String toString() {
-  return 'IceCandidateInfoModel(candidate: $candidate, sdpMid: $sdpMid, sdpMLineIndex: $sdpMLineIndex, to: $to)';
+  return 'IceCandidateInfoModel(from: $from, to: $to, candidate: $candidate, sdpMid: $sdpMid, sdpMLineIndex: $sdpMLineIndex)';
 }
 
 
@@ -131,7 +133,7 @@ abstract mixin class _$IceCandidateModelCopyWith<$Res> implements $IceCandidateI
   factory _$IceCandidateModelCopyWith(_IceCandidateModel value, $Res Function(_IceCandidateModel) _then) = __$IceCandidateModelCopyWithImpl;
 @override @useResult
 $Res call({
-@JsonKey(name: 'candidate') String candidate,@JsonKey(name: 'sdpMid') String sdpMid,@JsonKey(name: 'sdpMLineIndex') int sdpMLineIndex,@JsonKey(name: 'to') String to
+@JsonKey(name: 'from') String from,@JsonKey(name: 'to') String to,@JsonKey(name: 'candidate') String candidate,@JsonKey(name: 'sdpMid') String sdpMid,@JsonKey(name: 'sdpMLineIndex') int sdpMLineIndex
 });
 
 
@@ -148,13 +150,14 @@ class __$IceCandidateModelCopyWithImpl<$Res>
 
 /// Create a copy of IceCandidateInfoModel
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? candidate = null,Object? sdpMid = null,Object? sdpMLineIndex = null,Object? to = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? from = null,Object? to = null,Object? candidate = null,Object? sdpMid = null,Object? sdpMLineIndex = null,}) {
   return _then(_IceCandidateModel(
-candidate: null == candidate ? _self.candidate : candidate // ignore: cast_nullable_to_non_nullable
+from: null == from ? _self.from : from // ignore: cast_nullable_to_non_nullable
+as String,to: null == to ? _self.to : to // ignore: cast_nullable_to_non_nullable
+as String,candidate: null == candidate ? _self.candidate : candidate // ignore: cast_nullable_to_non_nullable
 as String,sdpMid: null == sdpMid ? _self.sdpMid : sdpMid // ignore: cast_nullable_to_non_nullable
 as String,sdpMLineIndex: null == sdpMLineIndex ? _self.sdpMLineIndex : sdpMLineIndex // ignore: cast_nullable_to_non_nullable
-as int,to: null == to ? _self.to : to // ignore: cast_nullable_to_non_nullable
-as String,
+as int,
   ));
 }
 

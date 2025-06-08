@@ -3,12 +3,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:kolibri_project/data/core/result.dart';
+import 'package:kolibri_project/domain/model/call_answer_model.dart';
+import 'package:kolibri_project/domain/use_case/webrtc/media_peer_connection/turn_on_local_media_stream_use_case.dart';
+import 'package:kolibri_project/domain/use_case/webrtc/signaling/listen_for_ice_candidates_use_case.dart';
+import 'package:kolibri_project/domain/use_case/webrtc/signaling/send_ice_candidate_use_case.dart';
 import 'package:kolibri_project/env/env.dart';
 import 'package:kolibri_project/view/pages/webrtc_page/webrtc_page_state.dart';
 import 'package:vibration/vibration.dart';
 
-import '../../../domain/model/call_answer_model.dart';
-import '../../../domain/model/call_offer_model.dart';
+import '../../../domain/model/call_offer_model.dart'; // Ensure this is correctly imported
 import '../../../domain/model/control_signal_model.dart' as domain_cs;
 import '../../../domain/model/ice_candidate_info_model.dart';
 import '../../../domain/model/peer_user_model.dart';
@@ -19,661 +22,630 @@ import '../../../domain/use_case/webrtc/media_peer_connection/add_track_to_peer_
 import '../../../domain/use_case/webrtc/media_peer_connection/create_peer_connection_use_case.dart';
 import '../../../domain/use_case/webrtc/media_peer_connection/create_sdp_answer_use_case.dart';
 import '../../../domain/use_case/webrtc/media_peer_connection/create_sdp_offer_use_case.dart';
-import '../../../domain/use_case/webrtc/media_peer_connection/dispose_peer_connection_use_case.dart';
-import '../../../domain/use_case/webrtc/media_peer_connection/dispose_renderers_use_case.dart';
-import '../../../domain/use_case/webrtc/media_peer_connection/get_local_user_media_use_case.dart';
-import '../../../domain/use_case/webrtc/media_peer_connection/initialize_renderers_use_case.dart';
-import '../../../domain/use_case/webrtc/media_peer_connection/listen_connection_state_use_case.dart';
-import '../../../domain/use_case/webrtc/media_peer_connection/listen_on_ice_candidate_generated_use_case.dart';
-import '../../../domain/use_case/webrtc/media_peer_connection/listen_on_track_use_case.dart';
 import '../../../domain/use_case/webrtc/media_peer_connection/set_local_description_use_case.dart';
 import '../../../domain/use_case/webrtc/media_peer_connection/set_remote_description_use_case.dart';
-import '../../../domain/use_case/webrtc/media_peer_connection/turn_off_local_media_use_case.dart';
+import '../../../domain/use_case/webrtc/media_peer_connection/turn_off_media_stream_use_case.dart';
+import '../../../domain/use_case/webrtc/signaling/accept_incoming_call_use_case.dart';
+import '../../../domain/use_case/webrtc/signaling/call_peer_use_case.dart';
+import '../../../domain/use_case/webrtc/signaling/close_peer_connection_use_case.dart';
 import '../../../domain/use_case/webrtc/signaling/connect_signaling_use_case.dart';
+import '../../../domain/use_case/webrtc/signaling/decline_incoming_call_use_case.dart';
 import '../../../domain/use_case/webrtc/signaling/disconnect_signaling_use_case.dart';
-import '../../../domain/use_case/webrtc/signaling/get_user_list_stream_usecase.dart';
-import '../../../domain/use_case/webrtc/signaling/listen_answer_use_case.dart';
-import '../../../domain/use_case/webrtc/signaling/listen_control_signal_use_case.dart';
-import '../../../domain/use_case/webrtc/signaling/listen_hang_up_use_case.dart';
-import '../../../domain/use_case/webrtc/signaling/listen_ice_candidate_use_case.dart';
-import '../../../domain/use_case/webrtc/signaling/listen_offer_use_case.dart';
-import '../../../domain/use_case/webrtc/signaling/listen_refusal_use_case.dart';
-import '../../../domain/use_case/webrtc/signaling/send_answer_use_case.dart';
+import '../../../domain/use_case/webrtc/signaling/hang_up_call_use_case.dart';
+import '../../../domain/use_case/webrtc/signaling/listen_for_call_answer_use_case.dart';
+import '../../../domain/use_case/webrtc/signaling/listen_for_call_offers_use_case.dart';
+import '../../../domain/use_case/webrtc/signaling/listen_for_control_signal_use_case.dart';
+import '../../../domain/use_case/webrtc/signaling/listen_for_hang_up_use_case.dart';
+import '../../../domain/use_case/webrtc/signaling/listen_for_refused_call_use_case.dart';
+import '../../../domain/use_case/webrtc/signaling/listen_for_user_list_use_case.dart';
 import '../../../domain/use_case/webrtc/signaling/send_control_signal_use_case.dart';
-import '../../../domain/use_case/webrtc/signaling/send_hang_up_use_case.dart';
-import '../../../domain/use_case/webrtc/signaling/send_ice_candidate_use_case.dart';
-import '../../../domain/use_case/webrtc/signaling/send_offer_use_case.dart';
-import '../../../domain/use_case/webrtc/signaling/send_refusal_use_case.dart';
 
-class WebRTCViewModel extends ChangeNotifier {
-  // Use Cases
-  final ConnectSignalingUseCase _connectSignalingUseCase;
-  final DisconnectSignalingUseCase _disconnectSignalingUseCase;
-  final GetUserListStreamUseCase _getUserListStreamUseCase;
-  final SendOfferUseCase _sendOfferUseCase;
-  final ListenOfferUseCase _listenOfferUseCase;
-  final SendAnswerUseCase _sendAnswerUseCase;
-  final ListenAnswerUseCase _listenAnswerUseCase;
-  final SendIceCandidateUseCase _sendIceCandidateUseCase;
-  final ListenIceCandidateUseCase _listenIceCandidateUseCase;
-  final SendRefusalUseCase _sendRefusalUseCase;
-  final ListenRefusalUseCase _listenRefusalUseCase;
-  final SendHangUpUseCase _sendHangUpUseCase;
-  final ListenHangUpUseCase _listenHangUpUseCase;
-  final SendControlSignalUseCase _sendControlSignalUseCase;
-  final ListenControlSignalUseCase _listenControlSignalUseCase;
-  final InitializeRenderersUseCase _initializeRenderersUseCase;
-  final GetLocalUserMediaUseCase _getLocalUserMediaUseCase;
-  final TurnOffLocalMediaUseCase _turnOffLocalMediaUseCase;
-  final CreatePeerConnectionUseCase _createPeerConnectionUseCase;
+class WebRTCViewModel with ChangeNotifier {
+  final WebRTCRepository _webRTCRepository;
+
+  //media_peer_connection
+  final AddIceCandidateToPeerUseCase _addIceCandidateToPeerUseCase;
   final AddTrackToPeerUseCase _addTrackToPeerUseCase;
+  final CreatePeerConnectionUseCase _createPeerConnectionUseCase;
+  final CreateSdpAnswerUseCase _createSdpAnswerUseCase;
+  final CreateSdpOfferUseCase _createSdpOfferUseCase;
   final SetLocalDescriptionUseCase _setLocalDescriptionUseCase;
   final SetRemoteDescriptionUseCase _setRemoteDescriptionUseCase;
-  final AddIceCandidateToPeerUseCase _addIceCandidateToPeerUseCase;
-  final DisposePeerConnectionUseCase _disposePeerConnectionUseCase;
-  final ListenOnTrackUseCase _listenOnTrackUseCase;
-  final ListenOnIceCandidateGeneratedUseCase
-  _listenOnIceCandidateGeneratedUseCase;
-  final ListenConnectionStateUseCase _listenConnectionStateUseCase;
-  final CreateSdpOfferUseCase _createSdpOfferUseCase;
-  final CreateSdpAnswerUseCase _createSdpAnswerUseCase;
-  final DisposeRenderersUseCase _disposeRenderersUseCase;
+  final TurnOffMediaStreamUseCase _turnOffMediaStreamUseCase;
+  final TurnOnLocalMediaStreamUseCase _turnOnLocalMediaStreamUseCase;
 
-  final WebrtcRepository
-  _webRTCRepository; // Still needed for direct renderer access
+  //signaling
+  final AcceptIncomingCallUseCase _acceptIncomingCallUseCase;
+  final CallPeerUseCase _callPeerUseCase;
+  final ConnectSignalingUseCase _connectSignalingUseCase;
+  final DeclineIncomingCallUseCase _declineIncomingCallUseCase;
+  final DisconnectSignalingUseCase _disconnectSignalingUseCase;
+  final HangUpCallUseCase _hangUpCallUseCase;
+  final ListenForCallAnswerUseCase _listenForCallAnswerUseCase;
+  final ListenForCallOffersUseCase _listenForCallOffersUseCase;
+  final ListenForControlSignalUseCase _listenForControlSignalUseCase;
+  final ListenForIceCandidatesUseCase _listenForIceCandidatesUseCase;
+  final ListenForRefusedCallUseCase _listenForRefusedCallUseCase;
+  final ListenForUserListUseCase _listenForUserListUseCase;
+  final SendControlSignalUseCase _sendControlSignalUseCase;
+  final SendIceCandidateUseCase _sendIceCandidateUseCase;
+  final ListenForHangUpUseCase _listenForHangUpUseCase;
+  final ClosePeerConnectionUseCase _closePeerConnectionUseCase;
+
+  WebRTCViewModel({
+    required WebRTCRepository webRTCRepository,
+    required AddIceCandidateToPeerUseCase addIceCandidateToPeerUseCase,
+    required AddTrackToPeerUseCase addTrackToPeerUseCase,
+    required CreatePeerConnectionUseCase createPeerConnectionUseCase,
+    required CreateSdpAnswerUseCase createSdpAnswerUseCase,
+    required CreateSdpOfferUseCase createSdpOfferUseCase,
+    required SetLocalDescriptionUseCase setLocalDescriptionUseCase,
+    required SetRemoteDescriptionUseCase setRemoteDescriptionUseCase,
+    required TurnOffMediaStreamUseCase turnOffMediaStreamUseCase,
+    required TurnOnLocalMediaStreamUseCase turnOnLocalMediaStreamUseCase,
+    required AcceptIncomingCallUseCase acceptIncomingCallUseCase,
+    required CallPeerUseCase callPeerUseCase,
+    required ConnectSignalingUseCase connectSignalingUseCase,
+    required DeclineIncomingCallUseCase declineIncomingCallUseCase,
+    required DisconnectSignalingUseCase disconnectSignalingUseCase,
+    required HangUpCallUseCase hangUpCallUseCase,
+    required ListenForCallAnswerUseCase listenForCallAnswerUseCase,
+    required ListenForCallOffersUseCase listenForCallOffersUseCase,
+    required ListenForControlSignalUseCase listenForControlSignalUseCase,
+    required ListenForIceCandidatesUseCase listenForIceCandidatesUseCase,
+    required ListenForRefusedCallUseCase listenForRefusedCallUseCase,
+    required ListenForUserListUseCase listenForUserListUseCase,
+    required SendControlSignalUseCase sendControlSignalUseCase,
+    required SendIceCandidateUseCase sendIceCandidateUseCase,
+    required ListenForHangUpUseCase listenForHangUpUseCase,
+    required ClosePeerConnectionUseCase closePeerConnectionUseCase,
+  }) : _webRTCRepository = webRTCRepository,
+       _addIceCandidateToPeerUseCase = addIceCandidateToPeerUseCase,
+       _addTrackToPeerUseCase = addTrackToPeerUseCase,
+       _createPeerConnectionUseCase = createPeerConnectionUseCase,
+       _createSdpAnswerUseCase = createSdpAnswerUseCase,
+       _createSdpOfferUseCase = createSdpOfferUseCase,
+       _setLocalDescriptionUseCase = setLocalDescriptionUseCase,
+       _setRemoteDescriptionUseCase = setRemoteDescriptionUseCase,
+       _turnOffMediaStreamUseCase = turnOffMediaStreamUseCase,
+       _turnOnLocalMediaStreamUseCase = turnOnLocalMediaStreamUseCase,
+       _acceptIncomingCallUseCase = acceptIncomingCallUseCase,
+       _callPeerUseCase = callPeerUseCase,
+       _connectSignalingUseCase = connectSignalingUseCase,
+       _declineIncomingCallUseCase = declineIncomingCallUseCase,
+       _disconnectSignalingUseCase = disconnectSignalingUseCase,
+       _hangUpCallUseCase = hangUpCallUseCase,
+       _listenForCallAnswerUseCase = listenForCallAnswerUseCase,
+       _listenForCallOffersUseCase = listenForCallOffersUseCase,
+       _listenForControlSignalUseCase = listenForControlSignalUseCase,
+       _listenForIceCandidatesUseCase = listenForIceCandidatesUseCase,
+       _listenForRefusedCallUseCase = listenForRefusedCallUseCase,
+       _listenForUserListUseCase = listenForUserListUseCase,
+       _sendControlSignalUseCase = sendControlSignalUseCase,
+       _sendIceCandidateUseCase = sendIceCandidateUseCase,
+       _listenForHangUpUseCase = listenForHangUpUseCase,
+       _closePeerConnectionUseCase = closePeerConnectionUseCase {
+    init();
+  }
 
   WebrtcPageState _state = const WebrtcPageState();
 
   WebrtcPageState get state => _state;
 
+  RTCPeerConnection? _peerConnection;
+  MediaStream? localStream; // Managed here directly
+  MediaStream? remoteStream; // Managed here directly
+  final RTCVideoRenderer localRenderer = RTCVideoRenderer();
+  final RTCVideoRenderer remoteRenderer = RTCVideoRenderer();
+
   final List<StreamSubscription> _subscriptions = [];
-  BuildContext? _callViewContext;
-  RTCPeerConnection? peerConnection;
-  MediaStream? localStream;
-  MediaStream? remoteStream;
 
-  // IMPORTANT: Replace with your actual server IP and port
-  final String _serverUrl = Env.kolibriServerAddress;
+  BuildContext? _callViewContext; // Context for programmatic navigation
 
-  WebRTCViewModel(
-    this._webRTCRepository, {
-    required ConnectSignalingUseCase connectSignalingUseCase,
-    required DisconnectSignalingUseCase disconnectSignalingUseCase,
-    required GetUserListStreamUseCase getUserListStreamUseCase,
-    required SendOfferUseCase sendOfferUseCase,
-    required ListenOfferUseCase listenOfferUseCase,
-    required SendAnswerUseCase sendAnswerUseCase,
-    required ListenAnswerUseCase listenAnswerUseCase,
-    required SendIceCandidateUseCase sendIceCandidateUseCase,
-    required ListenIceCandidateUseCase listenIceCandidateUseCase,
-    required SendRefusalUseCase sendRefusalUseCase,
-    required ListenRefusalUseCase listenRefusalUseCase,
-    required SendHangUpUseCase sendHangUpUseCase,
-    required ListenHangUpUseCase listenHangUpUseCase,
-    required SendControlSignalUseCase sendControlSignalUseCase,
-    required ListenControlSignalUseCase listenControlSignalUseCase,
-    required InitializeRenderersUseCase initializeRenderersUseCase,
-    required GetLocalUserMediaUseCase getLocalUserMediaUseCase,
-    required TurnOffLocalMediaUseCase turnOffLocalMediaUseCase,
-    required CreatePeerConnectionUseCase createPeerConnectionUseCase,
-    required AddTrackToPeerUseCase addTrackToPeerUseCase,
-    required SetLocalDescriptionUseCase setLocalDescriptionUseCase,
-    required SetRemoteDescriptionUseCase setRemoteDescriptionUseCase,
-    required AddIceCandidateToPeerUseCase addIceCandidateToPeerUseCase,
-    required DisposePeerConnectionUseCase disposePeerConnectionUseCase,
-    required ListenOnTrackUseCase listenOnTrackUseCase,
-    required ListenOnIceCandidateGeneratedUseCase
-    listenOnIceCandidateGeneratedUseCase,
-    required ListenConnectionStateUseCase listenConnectionStateUseCase,
-    required CreateSdpOfferUseCase createSdpOfferUseCase,
-    required CreateSdpAnswerUseCase createSdpAnswerUseCase,
-    required DisposeRenderersUseCase disposeRenderersUseCase,
-  }) : _connectSignalingUseCase = connectSignalingUseCase,
-       _disconnectSignalingUseCase = disconnectSignalingUseCase,
-       _getUserListStreamUseCase = getUserListStreamUseCase,
-       _sendOfferUseCase = sendOfferUseCase,
-       _listenOfferUseCase = listenOfferUseCase,
-       _sendAnswerUseCase = sendAnswerUseCase,
-       _listenAnswerUseCase = listenAnswerUseCase,
-       _sendIceCandidateUseCase = sendIceCandidateUseCase,
-       _listenIceCandidateUseCase = listenIceCandidateUseCase,
-       _sendRefusalUseCase = sendRefusalUseCase,
-       _listenRefusalUseCase = listenRefusalUseCase,
-       _sendHangUpUseCase = sendHangUpUseCase,
-       _listenHangUpUseCase = listenHangUpUseCase,
-       _sendControlSignalUseCase = sendControlSignalUseCase,
-       _listenControlSignalUseCase = listenControlSignalUseCase,
-       _initializeRenderersUseCase = initializeRenderersUseCase,
-       _getLocalUserMediaUseCase = getLocalUserMediaUseCase,
-       _turnOffLocalMediaUseCase = turnOffLocalMediaUseCase,
-       _createPeerConnectionUseCase = createPeerConnectionUseCase,
-       _addTrackToPeerUseCase = addTrackToPeerUseCase,
-       _setLocalDescriptionUseCase = setLocalDescriptionUseCase,
-       _setRemoteDescriptionUseCase = setRemoteDescriptionUseCase,
-       _addIceCandidateToPeerUseCase = addIceCandidateToPeerUseCase,
-       _disposePeerConnectionUseCase = disposePeerConnectionUseCase,
-       _listenOnTrackUseCase = listenOnTrackUseCase,
-       _listenOnIceCandidateGeneratedUseCase =
-           listenOnIceCandidateGeneratedUseCase,
-       _listenConnectionStateUseCase = listenConnectionStateUseCase,
-       _createSdpOfferUseCase = createSdpOfferUseCase,
-       _createSdpAnswerUseCase = createSdpAnswerUseCase,
-       _disposeRenderersUseCase = disposeRenderersUseCase {
-    _initialize();
-  }
-
-  RTCVideoRenderer get localRenderer => _webRTCRepository.localRenderer;
-
-  RTCVideoRenderer get remoteRenderer => _webRTCRepository.remoteRenderer;
-
-  Future<void> _initialize() async {
+  void init() async {
     _updateState(_state.copyWith(screenState: AppScreenState.loading));
-    await _initializeRenderersUseCase.call();
-
-    print('connecting server: ${Env.kolibriServerAddress}');
-    final connectResult = await _connectSignalingUseCase.call(_serverUrl);
-    switch (connectResult) {
-      case Success<String>():
-        _updateState(
-          _state.copyWith(
-            myId: connectResult.data,
-            screenState: AppScreenState.lobby,
-          ),
-        );
-        _listenToStreams();
-      case Error<String>():
-        _updateState(
-          _state.copyWith(
-            screenState: AppScreenState.error,
-            errorMessage: "Connection failed: ${connectResult.message}",
-          ),
-        );
-    }
-  }
-
-  void _listenToStreams() {
-    _subscriptions.add(
-      _getUserListStreamUseCase.call().listen((users) {
-        _updateState(
-          _state.copyWith(
-            onlineUsers: users.where((u) => u.id != _state.myId).toList(),
-          ),
-        );
-      }),
-    );
-    _subscriptions.add(_listenOfferUseCase.call().listen(_handleIncomingOffer));
-    _subscriptions.add(
-      _listenAnswerUseCase.call().listen(_handleIncomingAnswer),
-    );
-    _subscriptions.add(
-      _listenIceCandidateUseCase.call().listen(_handleRemoteIceCandidate),
-    );
-    _subscriptions.add(_listenRefusalUseCase.call().listen(_handleCallRefused));
-    _subscriptions.add(
-      _listenHangUpUseCase.call().listen(_handlePeerDisconnected),
-    );
-    _subscriptions.add(
-      _listenControlSignalUseCase.call().listen(_handleControlSignal),
-    );
-  }
-
-  Future<void> _createAndConfigurePeerConnection() async {
-    if (peerConnection != null) {
-      await _disposePeerConnectionUseCase.call(peerConnection);
-      peerConnection = null;
-      remoteStream = null;
-      _updateState(_state.copyWith(remoteVideoVisible: false));
-    }
-    final pcResult = await _createPeerConnectionUseCase.call();
-
-    switch (pcResult) {
-      case Success<RTCPeerConnection>():
-        peerConnection = pcResult.data;
-
-        _listenToPeerConnectionEvents(pcResult.data);
-        if (localStream != null) {
-          // If local media is already on
-          _addTrackToPeerUseCase.call(localStream!, pcResult.data);
-        }
-      case Error<RTCPeerConnection>():
-        _updateState(
-          _state.copyWith(
-            screenState: AppScreenState.error,
-            errorMessage: "PC creation failed: ${pcResult.message}",
-          ),
-        );
-    }
-  }
-
-  void _listenToPeerConnectionEvents(RTCPeerConnection pc) {
-    _subscriptions.add(
-      _listenOnIceCandidateGeneratedUseCase.call(pc).listen((candidate) async {
-        if (_state.remotePeerId != null && _state.myId != null) {
-          await _sendIceCandidateUseCase.call(
-            IceCandidateInfoModel(
-              to: _state.remotePeerId!,
-              candidate: candidate.candidate!,
-              sdpMid: candidate.sdpMid!,
-              sdpMLineIndex: candidate.sdpMLineIndex!,
-            ),
-          );
-        }
-      }),
-    );
-    _subscriptions.add(
-      _listenOnTrackUseCase.call(pc).listen((stream) {
-        remoteStream = stream;
-        _updateState(_state.copyWith(remoteVideoVisible: true));
-      }),
-    );
-    _subscriptions.add(
-      _listenConnectionStateUseCase.call(pc).listen((connectionState) {
-        debugPrint("[ViewModel] Peer Connection State: $connectionState");
-        if (connectionState ==
-            RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
-          peerConnection?.restartIce();
-        } else if (connectionState ==
-                RTCPeerConnectionState.RTCPeerConnectionStateDisconnected ||
-            connectionState ==
-                RTCPeerConnectionState.RTCPeerConnectionStateClosed) {
-          if (_state.screenState == AppScreenState.inCall) {
-            endCall(isRemoteHangup: true); // Treat as hangup if in call
-          }
-        }
-      }),
-    );
-  }
-
-  Future<void> _handleIncomingOffer(CallOfferModel offer) async {
-    if (_state.screenState == AppScreenState.inCall || _state.myId == null) {
-      if (_state.myId != null) {
-        await _sendRefusalUseCase.call(
-          toId: offer.fromId,
-          fromId: _state.myId!,
-        );
-      }
-      return;
-    }
-
-    await _createAndConfigurePeerConnection(); // Creates new PC or resets if one existed
-    if (peerConnection == null) {
-      _updateState(
-        _state.copyWith(
-          screenState: AppScreenState.error,
-          errorMessage: "Failed to setup for incoming call.",
-        ),
-      );
-      return;
-    }
-
-    await _setRemoteDescriptionUseCase.call(
-      RTCSessionDescription(offer.sdp, offer.type),
-      peerConnection!,
-    );
-
-    final mediaResult = await _getLocalUserMediaUseCase.call(
-      audioOnly: offer.audioOnly,
-    );
-
-    switch (mediaResult) {
-      case Success<MediaStream>():
-        localStream = mediaResult.data;
-        _updateState(
-          _state.copyWith(
-            localVideoEnabled: mediaResult.data.getVideoTracks().isNotEmpty,
-          ),
-        );
-        if (peerConnection != null) {
-          // Ensure PC still exists
-          _addTrackToPeerUseCase.call(mediaResult.data, peerConnection!);
-        }
-      case Error<MediaStream>():
-        _updateState(
-          _state.copyWith(
-            screenState: AppScreenState.error,
-            errorMessage:
-                "Media access failed for incoming call: ${mediaResult.message}",
-          ),
-        );
-      // Optionally send refusal if media fails
-    }
-
-    _updateState(
-      _state.copyWith(
-        incomingOffer: offer,
-        remotePeerId: offer.fromId,
-        audioOnlyCall: offer.audioOnly,
-        screenState: AppScreenState.incomingCall,
-      ),
-    );
-
-    if (await Vibration.hasVibrator()) {
-      Vibration.vibrate(duration: 1500);
-    }
-  }
-
-  Future<void> _handleIncomingAnswer(CallAnswerModel answer) async {
-    if (peerConnection == null || _state.remotePeerId != answer.fromId) {
-      return;
-    }
-    await _setRemoteDescriptionUseCase.call(
-      RTCSessionDescription(answer.sdp, answer.type),
-      peerConnection!,
-    );
-  }
-
-  Future<void> _handleRemoteIceCandidate(IceCandidateInfoModel iceInfo) async {
-    if (peerConnection == null || _state.myId != iceInfo.to) {
-      return; // ICE is for me
-    }
-    final rtcIceCandidate = RTCIceCandidate(
-      iceInfo.candidate,
-      iceInfo.sdpMid,
-      iceInfo.sdpMLineIndex,
-    );
-    await _addIceCandidateToPeerUseCase.call(rtcIceCandidate, peerConnection!);
-  }
-
-  void _handleControlSignal(domain_cs.ControlSignalModel signal) {
-    if (signal.to == _state.myId) {
-      debugPrint("[ViewModel] Received control signal: ${signal.type}");
-      // TODO: Implement logic based on signal (e.g., update game character)
-    }
-  }
-
-  void selectUserForCall(PeerUserModel user) {
-    _updateState(_state.copyWith(selectedUserForCall: user));
-  }
-
-  Future<void> initiateCall({bool audioOnly = false}) async {
-    if (_state.selectedUserForCall == null || _state.myId == null) {
-      _updateState(
-        _state.copyWith(errorMessage: "No user selected or not connected."),
-      );
-      return;
-    }
-
-    final toId = _state.selectedUserForCall!.id;
-    _updateState(
-      _state.copyWith(
-        remotePeerId: toId,
-        audioOnlyCall: audioOnly,
-        screenState: AppScreenState.inCall,
-      ),
-    ); // Optimistically move to inCall
-
-    await _createAndConfigurePeerConnection();
-    if (peerConnection == null) {
-      _updateState(
-        _state.copyWith(
-          screenState: AppScreenState.lobby,
-          remotePeerId: null,
-          errorMessage: "Failed to start call (PC).",
-        ),
-      );
-      return;
-    }
-
-    final mediaResult = await _getLocalUserMediaUseCase.call(
-      audioOnly: audioOnly,
-    );
-    switch (mediaResult) {
-      case Success<MediaStream>():
-        localStream = mediaResult.data;
-        _updateState(
-          _state.copyWith(
-            localVideoEnabled: mediaResult.data.getVideoTracks().isNotEmpty,
-          ),
-        );
-        _addTrackToPeerUseCase.call(mediaResult.data, peerConnection!);
-      case Error<MediaStream>():
-        _updateState(
-          _state.copyWith(
-            screenState: AppScreenState.lobby,
-            remotePeerId: null,
-            errorMessage: "Media access failed: ${mediaResult.message}",
-          ),
-        );
-        _resetCallState();
-        return;
-    }
-    // If media access failed critically (e.g. no stream for video call), we might have returned.
-
-    final sdpOffer = await _createSdpOfferUseCase.call(
-      peerConnection!,
-      audioOnly: audioOnly,
-    );
-    await _setLocalDescriptionUseCase.call(sdpOffer, peerConnection!);
-
-    final offerModel = CallOfferModel(
-      fromId: _state.myId!,
-      toId: toId,
-      sdp: sdpOffer.sdp!,
-      type: sdpOffer.type!,
-      audioOnly: audioOnly,
-    );
-
-    final result = await _sendOfferUseCase.call(offerModel);
-    switch (result) {
-      case Success<void>():
-        // 통화 제안(Offer)이 성공적으로 전송되었습니다.
-        // 아무것도 하지 않고 상대방의 응답(Answer)을 기다립니다.
-        debugPrint("[ViewModel] Offer sent successfully to $toId");
-        break;
-      case Error<void>():
-        _updateState(
-          _state.copyWith(
-            screenState: AppScreenState.lobby,
-            remotePeerId: null,
-            errorMessage: "Failed to send offer",
-          ),
-        );
-        _resetCallState();
-        break;
-    }
-  }
-
-  Future<void> answerCall() async {
-    if (_state.incomingOffer == null ||
-        _state.myId == null ||
-        peerConnection == null) {
-      _updateState(
-        _state.copyWith(
-          screenState: AppScreenState.lobby,
-          errorMessage: "Cannot answer call, missing information.",
-        ),
-      );
-      _resetCallState();
-      return;
-    }
-
-    // Ensure local media is active. It should be from _handleIncomingOffer, but double check.
-    if (localStream == null) {
-      final mediaResult = await _getLocalUserMediaUseCase.call(
-        audioOnly: _state.audioOnlyCall,
-      );
-
-      switch (mediaResult) {
-        case Success<MediaStream>():
-          localStream = mediaResult.data;
+    await localRenderer.initialize();
+    await remoteRenderer.initialize();
+    _connectSignalingUseCase.call(Env.kolibriServerAddress).listen((result) {
+      switch (result) {
+        case Success<String>():
           _updateState(
             _state.copyWith(
-              localVideoEnabled: mediaResult.data.getVideoTracks().isNotEmpty,
-            ),
-          );
-          _addTrackToPeerUseCase.call(mediaResult.data, peerConnection!);
-        case Error<MediaStream>():
-          _updateState(
-            _state.copyWith(
+              myId: result.data,
               screenState: AppScreenState.lobby,
-              errorMessage: "Media failed for answer: ${mediaResult.message}",
             ),
           );
-          _resetCallState();
-          _sendRefusalUseCase.call(
-            toId: _state.remotePeerId!,
-            fromId: _state.myId!,
+          _setupSignalingListeners();
+          break;
+        case Error<String>():
+          _updateState(
+            _state.copyWith(
+              errorMessage: "Failed to connect: ${result.message}",
+              screenState: AppScreenState.error,
+            ),
           );
-          return;
+          break;
       }
-    }
-
-    final sdpAnswer = await _createSdpAnswerUseCase.call(
-      peerConnection!,
-      audioOnly: _state.audioOnlyCall,
-    );
-    await _setLocalDescriptionUseCase.call(sdpAnswer, peerConnection!);
-
-    final answerModel = CallAnswerModel(
-      fromId: _state.myId!,
-      toId: _state.remotePeerId!,
-      sdp: sdpAnswer.sdp!,
-      type: sdpAnswer.type!,
-      audioOnly: _state.audioOnlyCall,
-    );
-
-    final result = await _sendAnswerUseCase.call(answerModel);
-
-    switch (result) {
-      case Success<void>():
-        _updateState(
-          _state.copyWith(
-            screenState: AppScreenState.inCall,
-            incomingOffer: null,
-          ),
-        );
-        Vibration.cancel();
-
-      case Error<void>():
-        _updateState(
-          _state.copyWith(
-            screenState: AppScreenState.lobby,
-            errorMessage: "Failed to send answer: ${result.message}",
-          ),
-        );
-        _resetCallState();
-    }
+    });
   }
 
-  Future<void> rejectCall() async {
-    if (_state.remotePeerId != null && _state.myId != null) {
-      await _sendRefusalUseCase.call(
-        toId: _state.remotePeerId!,
-        fromId: _state.myId!,
-      );
-    }
-    await _resetCallState(); // Reset local state for the call being rejected
+  void _setupSignalingListeners() {
+    // User list updates
+    _listenForUserListUseCase
+        .call()
+        .listen((users) {
+          final peerUsers = users
+              .where((user) => user.id != _state.myId)
+              .map((userData) => PeerUserModel(id: userData.id))
+              .toList();
+          _updateState(_state.copyWith(onlineUsers: peerUsers));
+        })
+        .addTo(_subscriptions);
+
+    // Incoming call offers (수신자용)
+    _listenForCallOffersUseCase
+        .call()
+        .listen((offer) async {
+          debugPrint('[ViewModel] Incoming offer from ${offer.fromId}');
+          // Vibrate on incoming call if possible
+          if (await Vibration.hasVibrator()) {
+            Vibration.vibrate(duration: 1000);
+          }
+          _updateState(
+            _state.copyWith(
+              incomingOffer: offer,
+              remotePeerId: offer.fromId,
+              screenState: AppScreenState.incomingCall,
+              audioOnlyCall: offer.audioOnly,
+            ),
+          );
+        })
+        .addTo(_subscriptions);
+
+    // Answer received (for caller) 발신자용
+    _listenForCallAnswerUseCase
+        .call()
+        .listen((answer) async {
+          if (_peerConnection != null &&
+              _state.remotePeerId == answer.fromId &&
+              _state.screenState == AppScreenState.loading) {
+            debugPrint('[ViewModel] Received answer from ${answer.fromId}');
+            try {
+              await _setRemoteDescriptionUseCase.call(
+                _peerConnection!,
+                RTCSessionDescription(answer.sdp, answer.type),
+              );
+              debugPrint(
+                '[ViewModel] Successfully set remote description from answer',
+              );
+              _updateState(
+                _state.copyWith(
+                  screenState: AppScreenState.inCall,
+                  audioOnlyCall: answer.audioOnly, // Update based on answer
+                  localVideoEnabled: !answer
+                      .audioOnly, // If not audio only, local video should be enabled
+                  // remoteVideoVisible will be updated by onTrack listener
+                ),
+              );
+            } catch (e) {
+              debugPrint('[ViewModel] Error setting remote description: $e');
+              _updateState(
+                _state.copyWith(
+                  errorMessage: 'Failed to process answer: $e',
+                  screenState: AppScreenState.lobby,
+                ),
+              );
+              _cleanupCall();
+            }
+          }
+        })
+        .addTo(_subscriptions);
+
+    // ICE Candidate received
+    _listenForIceCandidatesUseCase
+        .call()
+        .listen((candidateInfo) async {
+          if (_peerConnection != null &&
+              _state.remotePeerId == candidateInfo.from) {
+            debugPrint(
+              '[ViewModel] Received ICE Candidate from ${candidateInfo.from}',
+            );
+            await _addIceCandidateToPeerUseCase.call(
+              RTCIceCandidate(
+                candidateInfo.candidate,
+                candidateInfo.sdpMid,
+                candidateInfo.sdpMLineIndex,
+              ),
+              _peerConnection!,
+            );
+          }
+        })
+        .addTo(_subscriptions);
+
+    // Remote hang up
+    _listenForHangUpUseCase
+        .call()
+        .listen((fromId) async {
+          if (_state.remotePeerId == fromId) {
+            debugPrint('[ViewModel] Remote peer $fromId hung up.');
+            await hangUp();
+          }
+        })
+        .addTo(_subscriptions);
+
+    // Call refusal
+    _listenForRefusedCallUseCase
+        .call()
+        .listen((fromId) {
+          if (_state.remotePeerId == fromId) {
+            debugPrint('[ViewModel] Remote peer $fromId refused call.');
+            _updateState(
+              _state.copyWith(
+                screenState: AppScreenState.lobby,
+                remotePeerId: null,
+                incomingOffer: null,
+                errorMessage: 'Call to $fromId was refused.',
+              ),
+            );
+            _cleanupCall();
+          }
+        })
+        .addTo(_subscriptions);
+
+    // Control Signals
+    _listenForControlSignalUseCase
+        .call()
+        .listen((signal) {
+          debugPrint('[ViewModel] Received control signal: ${signal.type}');
+          switch (signal.type) {
+            case domain_cs.ControlSignalType.joystick:
+              _handleJoystickSignal(signal);
+              break;
+            case domain_cs.ControlSignalType.drag:
+              _handleDragSignal(signal);
+              break;
+            case domain_cs.ControlSignalType.zoom:
+              _handleZoomSignal(signal);
+              break;
+          }
+        })
+        .addTo(_subscriptions);
+  }
+
+  // region Call Actions
+
+  Future<void> callUser(PeerUserModel user, {bool audioOnly = false}) async {
     _updateState(
       _state.copyWith(
-        screenState: AppScreenState.lobby,
-        incomingOffer: null,
-        remotePeerId: null,
+        selectedUserForCall: user,
+        remotePeerId: user.id,
+        audioOnlyCall: audioOnly,
+        screenState: AppScreenState.loading,
+        // Indicate calling state
+        localVideoEnabled: !audioOnly,
+        // Set initial local video state
+        remoteVideoVisible: false, // Reset remote video visibility
       ),
     );
-    if (await Vibration.hasVibrator()) Vibration.cancel();
-  }
 
-  void _handleCallRefused(String fromId) async {
-    if (_state.remotePeerId == fromId) {
-      debugPrint("[ViewModel] Call refused by $fromId");
-      await _resetCallState();
+    await _initializeCall(audioOnly: audioOnly);
+
+    if (_peerConnection == null || localStream == null) {
       _updateState(
         _state.copyWith(
+          errorMessage: 'Failed to initialize peer connection or local stream.',
           screenState: AppScreenState.lobby,
-          remotePeerId: null,
-          errorMessage: "Call refused by $fromId",
         ),
       );
-      if (_callViewContext != null && Navigator.canPop(_callViewContext!)) {
-        Navigator.pop(_callViewContext!);
-        _callViewContext = null;
-      }
+      return;
+    }
+
+    final offerResult = await _createSdpOfferUseCase.call(_peerConnection!);
+
+    switch (offerResult) {
+      case Success<RTCSessionDescription>():
+        final offer = offerResult.data;
+        await _setLocalDescriptionUseCase.call(_peerConnection!, offer);
+        _callPeerUseCase.call(
+          CallOfferModel(
+            fromId: _state.myId!,
+            toId: user.id,
+            sdp: offer.sdp!,
+            type: offer.type!,
+            audioOnly: audioOnly,
+          ),
+        );
+        // _updateState(_state.copyWith(screenState: AppScreenState.inCall));
+        break;
+      case Error<RTCSessionDescription>():
+        _updateState(
+          _state.copyWith(
+            errorMessage: 'Failed to create offer: ${offerResult.message}',
+            screenState: AppScreenState.lobby,
+          ),
+        );
+        _cleanupCall();
+        break;
     }
   }
 
-  void _handlePeerDisconnected(String fromId) async {
-    if (_state.remotePeerId == fromId &&
-        _state.screenState == AppScreenState.inCall) {
-      debugPrint("[ViewModel] Peer $fromId disconnected.");
-      await endCall(isRemoteHangup: true);
+  Future<void> acceptIncomingCall() async {
+    if (_state.incomingOffer == null ||
+        _state.remotePeerId == null ||
+        _state.myId == null) {
+      debugPrint('[ViewModel] No incoming offer to accept or missing IDs.');
+      return;
     }
-  }
-
-  Future<void> endCall({bool isRemoteHangup = false}) async {
-    if (!isRemoteHangup && _state.remotePeerId != null && _state.myId != null) {
-      await _sendHangUpUseCase.call(
-        toId: _state.remotePeerId!,
-        fromId: _state.myId!,
-      );
-    }
-
-    await _resetCallState(); // This handles media turn off and PC disposal
-    _updateState(
-      _state.copyWith(screenState: AppScreenState.lobby),
-    ); // Always return to lobby
-
-    if (_callViewContext != null && Navigator.canPop(_callViewContext!)) {
-      Navigator.pop(_callViewContext!);
-      _callViewContext = null;
-    }
-  }
-
-  Future<void> _resetCallState() async {
-    if (localStream != null) {
-      await _turnOffLocalMediaUseCase.call(localStream);
-    }
-    if (peerConnection != null) {
-      await _disposePeerConnectionUseCase.call(peerConnection);
-    }
-    peerConnection = null;
-    localStream = null;
-    remoteStream = null;
 
     _updateState(
       _state.copyWith(
-        remotePeerId: null,
-        localVideoEnabled: false,
-        remoteVideoVisible: false,
-        incomingOffer: null,
-        selectedUserForCall: null,
-        audioOnlyCall: false,
+        screenState: AppScreenState.loading,
+        localVideoEnabled: !_state.incomingOffer!.audioOnly,
+        // Set local video state based on incoming offer
+        remoteVideoVisible: false, // Reset remote video visibility
       ),
     );
+
+    await _initializeCall(audioOnly: _state.audioOnlyCall);
+
+    if (_peerConnection == null || localStream == null) {
+      _updateState(
+        _state.copyWith(
+          errorMessage: 'Failed to initialize peer connection or local stream.',
+          screenState: AppScreenState.lobby,
+        ),
+      );
+      return;
+    }
+
+    try {
+      // 1. 받은 offer를 remote description으로 설정
+      debugPrint('[ViewModel] Setting remote description with offer');
+      await _setRemoteDescriptionUseCase.call(
+        _peerConnection!,
+        RTCSessionDescription(
+          _state.incomingOffer!.sdp,
+          _state.incomingOffer!.type,
+        ),
+      );
+
+      // 2. Answer 생성
+      debugPrint('[ViewModel] Creating answer');
+      final answerResult = await _createSdpAnswerUseCase.call(_peerConnection!);
+
+      switch (answerResult) {
+        case Success<RTCSessionDescription>():
+          final answer = answerResult.data;
+
+          // 3. Answer를 local description으로 설정
+          debugPrint('[ViewModel] Setting local description with answer');
+          await _setLocalDescriptionUseCase.call(_peerConnection!, answer);
+
+          // 4. Answer를 발신자에게 전송
+          final callAnswer = CallAnswerModel(
+            fromId: _state.myId!,
+            toId: _state.remotePeerId!,
+            sdp: answer.sdp!,
+            type: answer.type!,
+            audioOnly: _state.audioOnlyCall,
+          );
+
+          debugPrint('[ViewModel] Sending answer to ${_state.remotePeerId}');
+          _acceptIncomingCallUseCase.call(callAnswer);
+
+          // 5. 통화 상태로 전환
+          _updateState(
+            _state.copyWith(
+              screenState: AppScreenState.inCall,
+              incomingOffer: null, // offer 처리 완료
+            ),
+          );
+
+          break;
+
+        case Error<RTCSessionDescription>():
+          debugPrint(
+            '[ViewModel] Failed to create answer: ${answerResult.message}',
+          );
+          _updateState(
+            _state.copyWith(
+              errorMessage: 'Failed to create answer: ${answerResult.message}',
+              screenState: AppScreenState.lobby,
+            ),
+          );
+          _cleanupCall();
+          break;
+      }
+    } catch (e) {
+      debugPrint('[ViewModel] Error during acceptIncomingCall: $e');
+      _updateState(
+        _state.copyWith(
+          errorMessage: 'Error accepting call: $e',
+          screenState: AppScreenState.lobby,
+        ),
+      );
+      _cleanupCall();
+    }
   }
 
-  Future<void> toggleLocalMedia() async {
-    if (localStream != null) {
-      await _turnOffLocalMediaUseCase.call(localStream);
-      localStream = null;
-      _updateState(_state.copyWith(localVideoEnabled: false));
-    } else {
-      final mediaResult = await _getLocalUserMediaUseCase.call(
-        audioOnly: _state.audioOnlyCall,
-      );
-      switch (mediaResult) {
-        case Success<MediaStream>():
-          localStream = mediaResult.data;
-          _updateState(
-            _state.copyWith(
-              localVideoEnabled: mediaResult.data.getVideoTracks().isNotEmpty,
-            ),
-          );
-          if (peerConnection != null &&
-              (peerConnection!.connectionState ==
-                      RTCPeerConnectionState.RTCPeerConnectionStateConnected ||
-                  peerConnection!.connectionState ==
-                      RTCPeerConnectionState.RTCPeerConnectionStateNew)) {
-            // Check if PC exists and is in a valid state to add tracks
-            _addTrackToPeerUseCase.call(mediaResult.data, peerConnection!);
+  Future<void> refuseIncomingCall() async {
+    if (_state.incomingOffer != null && _state.remotePeerId != null) {
+      _declineIncomingCallUseCase.call(_state.remotePeerId!);
+    }
+    _resetState();
+    _cleanupCall();
+  }
+
+  Future<void> hangUp() async {
+    if (_state.remotePeerId != null && _state.myId != null) {
+      _hangUpCallUseCase.call(_state.myId!, _state.remotePeerId!);
+    }
+    _resetState();
+    _cleanupCall();
+  }
+
+  // endregion
+
+  // region Media Control
+
+  Future<void> _initializeCall({required bool audioOnly}) async {
+    // 1. Get local media stream
+    final mediaResult = await _turnOnLocalMediaStreamUseCase.call(
+      audioOnly: audioOnly,
+      localRenderer: localRenderer,
+    );
+    switch (mediaResult) {
+      case Success<MediaStream>():
+        localStream = mediaResult.data; // Assign to localStream
+        localRenderer.srcObject = localStream;
+        _updateState(_state.copyWith(localVideoEnabled: !audioOnly));
+        // 2. Create Peer Connection
+        final peerConnectionResult = await _createPeerConnectionUseCase.call();
+        switch (peerConnectionResult) {
+          case Success<RTCPeerConnection>():
+            _peerConnection = peerConnectionResult.data;
+            _setupPeerConnectionListeners(_peerConnection!);
+
+            // Add local stream tracks to peer connection
+            if (localStream != null) {
+              _addTrackToPeerUseCase.call(localStream!, _peerConnection!);
+            }
+
+            break;
+          case Error<RTCPeerConnection>():
+            _updateState(
+              _state.copyWith(
+                errorMessage:
+                    "Failed to create peer connection: ${peerConnectionResult.message}",
+                screenState: AppScreenState.error,
+              ),
+            );
+            _cleanupCall(); // Cleanup if PC creation fails
+            return;
+        }
+      case Error<MediaStream>():
+        _updateState(
+          _state.copyWith(
+            errorMessage: "Toggle media failed: ${mediaResult.message}",
+          ),
+        );
+    }
+  }
+
+  void _setupPeerConnectionListeners(RTCPeerConnection peerConnection) {
+    // On ICE Candidate
+    _webRTCRepository
+        .getOnIceCandidateStream(peerConnection)
+        .listen((candidate) {
+          if (_state.remotePeerId != null && _state.myId != null) {
+            _sendIceCandidateUseCase.call(
+              IceCandidateInfoModel(
+                from: _state.myId!,
+                to: _state.remotePeerId!,
+                candidate: candidate.candidate!,
+                sdpMid: candidate.sdpMid!,
+                sdpMLineIndex: candidate.sdpMLineIndex!,
+              ),
+            );
           }
-        case Error<MediaStream>():
-          _updateState(
-            _state.copyWith(
-              errorMessage: "Toggle media failed: ${mediaResult.message}",
-            ),
-          );
+        })
+        .addTo(_subscriptions);
+
+    // On Track (remote stream)
+    _webRTCRepository
+        .getOnTrackStream(peerConnection, remoteRenderer)
+        .listen((stream) {
+      debugPrint(
+        '[ViewModel] Remote track received, Stream ID: ${stream.id}',
+      );
+      remoteStream = stream; // Assign to remoteStream
+      remoteRenderer.srcObject = stream;
+      _updateState(_state.copyWith(remoteVideoVisible: true));
+    })
+        .addTo(_subscriptions);
+
+    // // On Track (remote stream)
+    // peerConnection.onTrack = (RTCTrackEvent event) {
+    //   debugPrint(
+    //     '[ViewModel] onTrack event received. Track kind: ${event.track.kind}, Stream ID: ${event.streams.first.id}',
+    //   );
+    //   if (event.track.kind == 'video' && event.streams.isNotEmpty) {
+    //     remoteStream = event.streams[0];
+    //     remoteRenderer.srcObject = remoteStream;
+    //     _updateState(_state.copyWith(remoteVideoVisible: true));
+    //     debugPrint('[ViewModel] Remote video track added, remoteRenderer srcObject set.');
+    //   } else if (event.track.kind == 'audio' && event.streams.isNotEmpty) {
+    //     // Handle audio tracks if needed, though they don't need a renderer
+    //     debugPrint('[ViewModel] Remote audio track added.');
+    //   }
+    // };
+
+    // On Connection State Change
+    _webRTCRepository
+        .getOnConnectionStateStream(peerConnection)
+        .listen((state) async {
+          debugPrint('[ViewModel] Peer connection state changed: $state');
+          // Handle connection state changes (e.g., connected, disconnected, failed)
+          if (state ==
+                  RTCPeerConnectionState.RTCPeerConnectionStateDisconnected ||
+              state == RTCPeerConnectionState.RTCPeerConnectionStateClosed ||
+              state == RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
+            if (_state.screenState == AppScreenState.inCall) {
+              await hangUp(); // Automatically hang up on disconnection/failure
+            }
+          } else if (state ==
+              RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
+            debugPrint('[ViewModel] Peer connection established!');
+          }
+        })
+        .addTo(_subscriptions);
+  }
+
+  Future<void> toggleMicrophone() async {
+    if (localStream != null) {
+      final audioTrack = localStream!.getAudioTracks().firstOrNull;
+      if (audioTrack != null) {
+        audioTrack.enabled = !audioTrack.enabled;
+        // The audioOnlyCall state might represent if video is OFF.
+        // For mic mute, we usually have a separate state.
+        // For simplicity, we just toggle the track's enabled state.
+        debugPrint(
+          "[ViewModel] Local audio track enabled: ${audioTrack.enabled}",
+        );
+        notifyListeners(); // Notify UI for mic icon change
       }
     }
+  }
+
+  Future<void> toggleCamera() async {
+    if (localStream != null) {
+      final videoTrack = localStream!.getVideoTracks().firstOrNull;
+      if (videoTrack != null) {
+        videoTrack.enabled = !videoTrack.enabled;
+        _updateState(_state.copyWith(localVideoEnabled: videoTrack.enabled));
+        debugPrint(
+          "[ViewModel] Local video track enabled: ${videoTrack.enabled}",
+        );
+      }
+    }
+  }
+
+  // Control Signal Handlers
+  void _handleJoystickSignal(domain_cs.ControlSignalModel signal) {
+    debugPrint(
+      '[ViewModel] Joystick signal: angle=${signal.angle}, intensity=${signal.intensity}',
+    );
+    _updateState(_state.copyWith(lastReceivedControlSignal: signal));
+  }
+
+  void _handleDragSignal(domain_cs.ControlSignalModel signal) {
+    debugPrint('[ViewModel] Drag signal: dx=${signal.dx}, dy=${signal.dy}');
+    _updateState(_state.copyWith(lastReceivedControlSignal: signal));
+  }
+
+  void _handleZoomSignal(domain_cs.ControlSignalModel signal) {
+    debugPrint('[ViewModel] Zoom signal: scale=${signal.scale}');
+    _updateState(_state.copyWith(lastReceivedControlSignal: signal));
   }
 
   void sendControlSignal(domain_cs.ControlSignalModel signal) {
@@ -696,20 +668,83 @@ class WebRTCViewModel extends ChangeNotifier {
 
   void clearCallViewContext() => _callViewContext = null;
 
-  @override
-  void dispose() {
+  void _cleanupCall() {
+    debugPrint("[ViewModel] Cleaning up call resources.");
+    // Cancel all current streams and dispose resources
     for (var sub in _subscriptions) {
       sub.cancel();
     }
     _subscriptions.clear();
-    _disconnectSignalingUseCase.call();
+
+    if (_peerConnection != null) {
+      _closePeerConnectionUseCase.call(
+        _peerConnection!,
+        localStream,
+        localRenderer,
+      );
+      _peerConnection = null;
+    }
+
     if (localStream != null) {
-      _turnOffLocalMediaUseCase.call(localStream);
+      _turnOffMediaStreamUseCase.call(localStream!, localRenderer);
+      localStream = null;
     }
-    if (peerConnection != null) {
-      _disposePeerConnectionUseCase.call(peerConnection);
+    if (remoteStream != null) {
+      _turnOffMediaStreamUseCase.call(remoteStream!, remoteRenderer);
+      remoteStream = null;
     }
-    _disposeRenderersUseCase.call();
+
+    // Clear renderers' srcObject
+    localRenderer.srcObject = null;
+    remoteRenderer.srcObject = null;
+
+    // Pop the call view if it's still active
+    if (_callViewContext != null && Navigator.canPop(_callViewContext!)) {
+      Navigator.pop(_callViewContext!);
+    }
+    _callViewContext = null;
+  }
+
+  void _resetState() {
+    localStream = null;
+    remoteStream = null;
+    _updateState(
+      _state.copyWith(
+        screenState: AppScreenState.lobby,
+        incomingOffer: null,
+        remotePeerId: null,
+        audioOnlyCall: false,
+        localVideoEnabled: false,
+        // Reset local video state
+        remoteVideoVisible: false,
+        // Reset remote video state
+        errorMessage: null,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    debugPrint("[ViewModel] Disposing ViewModel.");
+    for (var sub in _subscriptions) {
+      sub.cancel();
+    }
+    _subscriptions.clear();
+
+    _disconnectSignalingUseCase.call(); // Disconnect signaling
+    _cleanupCall(); // Ensure all call resources are cleaned up
+
+    // Dispose renderers
+    localRenderer.dispose();
+    remoteRenderer.dispose();
+
     super.dispose();
+  }
+}
+
+// Extension to add StreamSubscription to a list
+extension StreamSubscriptionExtension<T> on StreamSubscription<T> {
+  void addTo(List<StreamSubscription> subscriptions) {
+    subscriptions.add(this);
   }
 }

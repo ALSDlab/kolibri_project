@@ -2,6 +2,8 @@ import 'package:get_it/get_it.dart';
 import 'package:kolibri_project/data/data_source/remote/socket_data_source.dart';
 import 'package:kolibri_project/data/repository/webrtc_repository_impl.dart';
 import 'package:kolibri_project/domain/repository/webrtc_repository.dart';
+import 'package:kolibri_project/domain/use_case/webrtc/signaling/close_peer_connection_use_case.dart';
+import 'package:kolibri_project/domain/use_case/webrtc/signaling/listen_for_hang_up_use_case.dart';
 
 import '../data/data_source/remote/webrtc_data_source.dart';
 import '../domain/use_case/webrtc/media_peer_connection/add_ice_candidate_to_peer_use_case.dart';
@@ -9,31 +11,24 @@ import '../domain/use_case/webrtc/media_peer_connection/add_track_to_peer_use_ca
 import '../domain/use_case/webrtc/media_peer_connection/create_peer_connection_use_case.dart';
 import '../domain/use_case/webrtc/media_peer_connection/create_sdp_answer_use_case.dart';
 import '../domain/use_case/webrtc/media_peer_connection/create_sdp_offer_use_case.dart';
-import '../domain/use_case/webrtc/media_peer_connection/dispose_peer_connection_use_case.dart';
-import '../domain/use_case/webrtc/media_peer_connection/dispose_renderers_use_case.dart';
-import '../domain/use_case/webrtc/media_peer_connection/get_local_user_media_use_case.dart';
-import '../domain/use_case/webrtc/media_peer_connection/initialize_renderers_use_case.dart';
-import '../domain/use_case/webrtc/media_peer_connection/listen_connection_state_use_case.dart';
-import '../domain/use_case/webrtc/media_peer_connection/listen_on_ice_candidate_generated_use_case.dart';
-import '../domain/use_case/webrtc/media_peer_connection/listen_on_track_use_case.dart';
 import '../domain/use_case/webrtc/media_peer_connection/set_local_description_use_case.dart';
 import '../domain/use_case/webrtc/media_peer_connection/set_remote_description_use_case.dart';
-import '../domain/use_case/webrtc/media_peer_connection/turn_off_local_media_use_case.dart';
+import '../domain/use_case/webrtc/media_peer_connection/turn_off_media_stream_use_case.dart';
+import '../domain/use_case/webrtc/media_peer_connection/turn_on_local_media_stream_use_case.dart';
+import '../domain/use_case/webrtc/signaling/accept_incoming_call_use_case.dart';
+import '../domain/use_case/webrtc/signaling/call_peer_use_case.dart';
 import '../domain/use_case/webrtc/signaling/connect_signaling_use_case.dart';
+import '../domain/use_case/webrtc/signaling/decline_incoming_call_use_case.dart';
 import '../domain/use_case/webrtc/signaling/disconnect_signaling_use_case.dart';
-import '../domain/use_case/webrtc/signaling/get_user_list_stream_usecase.dart';
-import '../domain/use_case/webrtc/signaling/listen_answer_use_case.dart';
-import '../domain/use_case/webrtc/signaling/listen_control_signal_use_case.dart';
-import '../domain/use_case/webrtc/signaling/listen_hang_up_use_case.dart';
-import '../domain/use_case/webrtc/signaling/listen_ice_candidate_use_case.dart';
-import '../domain/use_case/webrtc/signaling/listen_offer_use_case.dart';
-import '../domain/use_case/webrtc/signaling/listen_refusal_use_case.dart';
-import '../domain/use_case/webrtc/signaling/send_answer_use_case.dart';
+import '../domain/use_case/webrtc/signaling/hang_up_call_use_case.dart';
+import '../domain/use_case/webrtc/signaling/listen_for_call_answer_use_case.dart';
+import '../domain/use_case/webrtc/signaling/listen_for_call_offers_use_case.dart';
+import '../domain/use_case/webrtc/signaling/listen_for_control_signal_use_case.dart';
+import '../domain/use_case/webrtc/signaling/listen_for_ice_candidates_use_case.dart';
+import '../domain/use_case/webrtc/signaling/listen_for_refused_call_use_case.dart';
+import '../domain/use_case/webrtc/signaling/listen_for_user_list_use_case.dart';
 import '../domain/use_case/webrtc/signaling/send_control_signal_use_case.dart';
-import '../domain/use_case/webrtc/signaling/send_hang_up_use_case.dart';
 import '../domain/use_case/webrtc/signaling/send_ice_candidate_use_case.dart';
-import '../domain/use_case/webrtc/signaling/send_offer_use_case.dart';
-import '../domain/use_case/webrtc/signaling/send_refusal_use_case.dart';
 import '../view/navigation/navigation_bar_page_view_model.dart';
 import '../view/pages/webrtc_page/webrtc_page_view_model.dart';
 
@@ -48,118 +43,90 @@ void diSetup() {
     ..registerSingleton<WebRTCDataSource>(WebRTCDataSource());
 
   // Repository
-  getIt.registerSingleton<WebrtcRepository>(
+  getIt.registerSingleton<WebRTCRepository>(
     WebRTCRepositoryImpl(getIt<SocketDataSource>(), getIt<WebRTCDataSource>()),
   );
 
   // UseCases - Signaling
   getIt
+    ..registerSingleton<AcceptIncomingCallUseCase>(
+      AcceptIncomingCallUseCase(getIt<WebRTCRepository>()),
+    )
+    ..registerSingleton<CallPeerUseCase>(
+      CallPeerUseCase(getIt<WebRTCRepository>()),
+    )
+    ..registerSingleton<ClosePeerConnectionUseCase>(
+      ClosePeerConnectionUseCase(getIt<WebRTCRepository>()),
+    )
     ..registerSingleton<ConnectSignalingUseCase>(
-      ConnectSignalingUseCase(chatDataRepository: getIt<WebrtcRepository>()),
+      ConnectSignalingUseCase(getIt<WebRTCRepository>()),
+    )
+    ..registerSingleton<DeclineIncomingCallUseCase>(
+      DeclineIncomingCallUseCase(getIt<WebRTCRepository>()),
     )
     ..registerSingleton<DisconnectSignalingUseCase>(
-      DisconnectSignalingUseCase(chatDataRepository: getIt<WebrtcRepository>()),
+      DisconnectSignalingUseCase(getIt<WebRTCRepository>()),
     )
-    ..registerSingleton<GetUserListStreamUseCase>(
-      GetUserListStreamUseCase(chatDataRepository: getIt<WebrtcRepository>()),
+    ..registerSingleton<HangUpCallUseCase>(
+      HangUpCallUseCase(getIt<WebRTCRepository>()),
     )
-    ..registerSingleton<SendOfferUseCase>(
-      SendOfferUseCase(chatDataRepository: getIt<WebrtcRepository>()),
+    ..registerSingleton<ListenForCallAnswerUseCase>(
+      ListenForCallAnswerUseCase(getIt<WebRTCRepository>()),
     )
-    ..registerSingleton<ListenOfferUseCase>(
-      ListenOfferUseCase(chatDataRepository: getIt<WebrtcRepository>()),
+    ..registerSingleton<ListenForCallOffersUseCase>(
+      ListenForCallOffersUseCase(getIt<WebRTCRepository>()),
     )
-    ..registerSingleton<SendAnswerUseCase>(
-      SendAnswerUseCase(chatDataRepository: getIt<WebrtcRepository>()),
+    ..registerSingleton<ListenForControlSignalUseCase>(
+      ListenForControlSignalUseCase(getIt<WebRTCRepository>()),
     )
-    ..registerSingleton<ListenAnswerUseCase>(
-      ListenAnswerUseCase(chatDataRepository: getIt<WebrtcRepository>()),
+    ..registerSingleton<ListenForHangUpUseCase>(
+      ListenForHangUpUseCase(getIt<WebRTCRepository>()),
     )
-    ..registerSingleton<SendIceCandidateUseCase>(
-      SendIceCandidateUseCase(chatDataRepository: getIt<WebrtcRepository>()),
+    ..registerSingleton<ListenForIceCandidatesUseCase>(
+      ListenForIceCandidatesUseCase(getIt<WebRTCRepository>()),
     )
-    ..registerSingleton<ListenIceCandidateUseCase>(
-      ListenIceCandidateUseCase(chatDataRepository: getIt<WebrtcRepository>()),
+    ..registerSingleton<ListenForRefusedCallUseCase>(
+      ListenForRefusedCallUseCase(getIt<WebRTCRepository>()),
     )
-    ..registerSingleton<SendRefusalUseCase>(
-      SendRefusalUseCase(chatDataRepository: getIt<WebrtcRepository>()),
-    )
-    ..registerSingleton<ListenRefusalUseCase>(
-      ListenRefusalUseCase(chatDataRepository: getIt<WebrtcRepository>()),
-    )
-    ..registerSingleton<SendHangUpUseCase>(
-      SendHangUpUseCase(chatDataRepository: getIt<WebrtcRepository>()),
-    )
-    ..registerSingleton<ListenHangUpUseCase>(
-      ListenHangUpUseCase(chatDataRepository: getIt<WebrtcRepository>()),
+    ..registerSingleton<ListenForUserListUseCase>(
+      ListenForUserListUseCase(getIt<WebRTCRepository>()),
     )
     ..registerSingleton<SendControlSignalUseCase>(
-      SendControlSignalUseCase(chatDataRepository: getIt<WebrtcRepository>()),
+      SendControlSignalUseCase(getIt<WebRTCRepository>()),
     )
-    ..registerSingleton<ListenControlSignalUseCase>(
-      ListenControlSignalUseCase(chatDataRepository: getIt<WebrtcRepository>()),
+    ..registerSingleton<SendIceCandidateUseCase>(
+      SendIceCandidateUseCase(getIt<WebRTCRepository>()),
     );
 
   // UseCases - Media & Peer Connection
   getIt
-    ..registerSingleton<InitializeRenderersUseCase>(
-      InitializeRenderersUseCase(chatDataRepository: getIt<WebrtcRepository>()),
-    )
-    ..registerSingleton<GetLocalUserMediaUseCase>(
-      GetLocalUserMediaUseCase(chatDataRepository: getIt<WebrtcRepository>()),
-    )
-    ..registerSingleton<TurnOffLocalMediaUseCase>(
-      TurnOffLocalMediaUseCase(chatDataRepository: getIt<WebrtcRepository>()),
-    )
-    ..registerSingleton<CreatePeerConnectionUseCase>(
-      CreatePeerConnectionUseCase(
-        chatDataRepository: getIt<WebrtcRepository>(),
-      ),
+    ..registerSingleton<AddIceCandidateToPeerUseCase>(
+      AddIceCandidateToPeerUseCase(getIt<WebRTCRepository>()),
     )
     ..registerSingleton<AddTrackToPeerUseCase>(
-      AddTrackToPeerUseCase(chatDataRepository: getIt<WebrtcRepository>()),
+      AddTrackToPeerUseCase(getIt<WebRTCRepository>()),
     )
-    ..registerSingleton<SetLocalDescriptionUseCase>(
-      SetLocalDescriptionUseCase(chatDataRepository: getIt<WebrtcRepository>()),
-    )
-    ..registerSingleton<SetRemoteDescriptionUseCase>(
-      SetRemoteDescriptionUseCase(
-        chatDataRepository: getIt<WebrtcRepository>(),
-      ),
-    )
-    ..registerSingleton<AddIceCandidateToPeerUseCase>(
-      AddIceCandidateToPeerUseCase(
-        chatDataRepository: getIt<WebrtcRepository>(),
-      ),
-    )
-    ..registerSingleton<DisposePeerConnectionUseCase>(
-      DisposePeerConnectionUseCase(
-        chatDataRepository: getIt<WebrtcRepository>(),
-      ),
-    )
-    ..registerSingleton<ListenOnTrackUseCase>(
-      ListenOnTrackUseCase(chatDataRepository: getIt<WebrtcRepository>()),
-    )
-    ..registerSingleton<ListenOnIceCandidateGeneratedUseCase>(
-      ListenOnIceCandidateGeneratedUseCase(
-        chatDataRepository: getIt<WebrtcRepository>(),
-      ),
-    )
-    ..registerSingleton<ListenConnectionStateUseCase>(
-      ListenConnectionStateUseCase(
-        chatDataRepository: getIt<WebrtcRepository>(),
-      ),
-    )
-    ..registerSingleton<CreateSdpOfferUseCase>(
-      CreateSdpOfferUseCase(chatDataRepository: getIt<WebrtcRepository>()),
+    ..registerSingleton<CreatePeerConnectionUseCase>(
+      CreatePeerConnectionUseCase(getIt<WebRTCRepository>()),
     )
     ..registerSingleton<CreateSdpAnswerUseCase>(
-      CreateSdpAnswerUseCase(chatDataRepository: getIt<WebrtcRepository>()),
+      CreateSdpAnswerUseCase(getIt<WebRTCRepository>()),
     )
-    ..registerSingleton<DisposeRenderersUseCase>(
-      DisposeRenderersUseCase(chatDataRepository: getIt<WebrtcRepository>()),
+    ..registerSingleton<CreateSdpOfferUseCase>(
+      CreateSdpOfferUseCase(getIt<WebRTCRepository>()),
+    )
+    ..registerSingleton<SetLocalDescriptionUseCase>(
+      SetLocalDescriptionUseCase(getIt<WebRTCRepository>()),
+    )
+    ..registerSingleton<SetRemoteDescriptionUseCase>(
+      SetRemoteDescriptionUseCase(getIt<WebRTCRepository>()),
+    )
+    ..registerSingleton<TurnOffMediaStreamUseCase>(
+      TurnOffMediaStreamUseCase(getIt<WebRTCRepository>()),
+    )
+    ..registerSingleton<TurnOnLocalMediaStreamUseCase>(
+      TurnOnLocalMediaStreamUseCase(getIt<WebRTCRepository>()),
     );
-
   // ViewModel
   getIt
     ..registerFactory<NavigationBarPageViewModel>(
@@ -167,38 +134,32 @@ void diSetup() {
     )
     ..registerFactory<WebRTCViewModel>(
       () => WebRTCViewModel(
-        getIt<WebrtcRepository>(),
-        connectSignalingUseCase: getIt<ConnectSignalingUseCase>(),
-        disconnectSignalingUseCase: getIt<DisconnectSignalingUseCase>(),
-        getUserListStreamUseCase: getIt<GetUserListStreamUseCase>(),
-        sendOfferUseCase: getIt<SendOfferUseCase>(),
-        listenOfferUseCase: getIt<ListenOfferUseCase>(),
-        sendAnswerUseCase: getIt<SendAnswerUseCase>(),
-        listenAnswerUseCase: getIt<ListenAnswerUseCase>(),
-        sendIceCandidateUseCase: getIt<SendIceCandidateUseCase>(),
-        listenIceCandidateUseCase: getIt<ListenIceCandidateUseCase>(),
-        sendRefusalUseCase: getIt<SendRefusalUseCase>(),
-        listenRefusalUseCase: getIt<ListenRefusalUseCase>(),
-        sendHangUpUseCase: getIt<SendHangUpUseCase>(),
-        listenHangUpUseCase: getIt<ListenHangUpUseCase>(),
-        sendControlSignalUseCase: getIt<SendControlSignalUseCase>(),
-        listenControlSignalUseCase: getIt<ListenControlSignalUseCase>(),
-        initializeRenderersUseCase: getIt<InitializeRenderersUseCase>(),
-        getLocalUserMediaUseCase: getIt<GetLocalUserMediaUseCase>(),
-        turnOffLocalMediaUseCase: getIt<TurnOffLocalMediaUseCase>(),
+        webRTCRepository: getIt<WebRTCRepository>(),
+        callPeerUseCase: getIt<CallPeerUseCase>(),
+        listenForUserListUseCase: getIt<ListenForUserListUseCase>(),
+        listenForCallOffersUseCase: getIt<ListenForCallOffersUseCase>(),
+        acceptIncomingCallUseCase: getIt<AcceptIncomingCallUseCase>(),
+        declineIncomingCallUseCase: getIt<DeclineIncomingCallUseCase>(),
+        hangUpCallUseCase: getIt<HangUpCallUseCase>(),
         createPeerConnectionUseCase: getIt<CreatePeerConnectionUseCase>(),
-        addTrackToPeerUseCase: getIt<AddTrackToPeerUseCase>(),
-        setLocalDescriptionUseCase: getIt<SetLocalDescriptionUseCase>(),
-        setRemoteDescriptionUseCase: getIt<SetRemoteDescriptionUseCase>(),
-        addIceCandidateToPeerUseCase: getIt<AddIceCandidateToPeerUseCase>(),
-        disposePeerConnectionUseCase: getIt<DisposePeerConnectionUseCase>(),
-        listenOnTrackUseCase: getIt<ListenOnTrackUseCase>(),
-        listenOnIceCandidateGeneratedUseCase:
-            getIt<ListenOnIceCandidateGeneratedUseCase>(),
-        listenConnectionStateUseCase: getIt<ListenConnectionStateUseCase>(),
+        turnOnLocalMediaStreamUseCase: getIt<TurnOnLocalMediaStreamUseCase>(),
+        turnOffMediaStreamUseCase: getIt<TurnOffMediaStreamUseCase>(),
         createSdpOfferUseCase: getIt<CreateSdpOfferUseCase>(),
+        setLocalDescriptionUseCase: getIt<SetLocalDescriptionUseCase>(),
+        listenForCallAnswerUseCase: getIt<ListenForCallAnswerUseCase>(),
+        setRemoteDescriptionUseCase: getIt<SetRemoteDescriptionUseCase>(),
+        addTrackToPeerUseCase: getIt<AddTrackToPeerUseCase>(),
+        listenForIceCandidatesUseCase: getIt<ListenForIceCandidatesUseCase>(),
+        sendIceCandidateUseCase: getIt<SendIceCandidateUseCase>(),
+        addIceCandidateToPeerUseCase: getIt<AddIceCandidateToPeerUseCase>(),
         createSdpAnswerUseCase: getIt<CreateSdpAnswerUseCase>(),
-        disposeRenderersUseCase: getIt<DisposeRenderersUseCase>(),
+        listenForRefusedCallUseCase: getIt<ListenForRefusedCallUseCase>(),
+        listenForControlSignalUseCase: getIt<ListenForControlSignalUseCase>(),
+        sendControlSignalUseCase: getIt<SendControlSignalUseCase>(),
+        disconnectSignalingUseCase: getIt<DisconnectSignalingUseCase>(),
+        connectSignalingUseCase: getIt<ConnectSignalingUseCase>(),
+        listenForHangUpUseCase: getIt<ListenForHangUpUseCase>(),
+        closePeerConnectionUseCase: getIt<ClosePeerConnectionUseCase>(),
       ),
     );
 }

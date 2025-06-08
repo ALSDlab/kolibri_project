@@ -1,13 +1,23 @@
+// domain/use_case/webrtc/media_peer_connection/set_remote_description_use_case.dart
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:kolibri_project/data/core/result.dart';
 
 import '../../../repository/webrtc_repository.dart';
 
 class SetRemoteDescriptionUseCase {
-  final WebrtcRepository _repository;
+  final WebRTCRepository _repository;
 
-  SetRemoteDescriptionUseCase({required WebrtcRepository chatDataRepository})
-    : _repository = chatDataRepository;
+  SetRemoteDescriptionUseCase(this._repository);
 
-  Future<void> call(RTCSessionDescription description, RTCPeerConnection pc) =>
-      _repository.setRemoteDescription(description, pc);
+  Future<Result<void>> call(
+    RTCPeerConnection peerConnection,
+    RTCSessionDescription description,
+  ) async {
+    try {
+      await _repository.settingRemoteDescription(peerConnection, description);
+      return const Success(null);
+    } catch (e) {
+      return Error(e.toString());
+    }
+  }
 }

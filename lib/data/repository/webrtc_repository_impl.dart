@@ -18,262 +18,182 @@ import '../core/result.dart';
 import '../data_source/remote/socket_data_source.dart';
 import '../data_source/remote/webrtc_data_source.dart';
 
-class WebRTCRepositoryImpl implements WebrtcRepository {
+class WebRTCRepositoryImpl implements WebRTCRepository {
   final SocketDataSource _socketDataSource;
   final WebRTCDataSource _webRTCDataSource;
 
   WebRTCRepositoryImpl(this._socketDataSource, this._webRTCDataSource);
 
   @override
-  Future<Result<String>> connectSignaling(String serverUrl) async {
+  Stream<Result<String>> connectSignaling(String url) async* {
     try {
-      final userId = await _socketDataSource.connect(serverUrl);
-      if (userId != null) {
-        return Result.success(userId);
-      }
-      return const Result.error("Failed to connect or get user ID");
+      final userId = await _socketDataSource.connect(url);
+      yield Success(userId);
     } catch (e) {
-      return Result.error(e.toString());
+      yield Error(e.toString());
     }
   }
 
   @override
-  Future<void> disconnectSignaling() async {
+  void disconnectSignaling() {
     _socketDataSource.dispose();
   }
 
   @override
-  Stream<List<PeerUserModel>> getOnlineUsersStream() {
-    return _socketDataSource.userListStream.map((ids) {
-      return ids
+  void callPeer(CallOfferModel offer) {
+    _socketDataSource.sendOffer(CallOfferMapper.toDTO(offer));
+  }
+
+  @override
+  void acceptIncomingCall(CallAnswerModel answer) {
+    _socketDataSource.sendAnswer(CallAnswerMapper.toDTO(answer));
+  }
+
+  @override
+  void declineIncomingCall(String toUserId) {
+    _socketDataSource.emit('refuse', {'to': toUserId});
+  }
+
+  @override
+  void hangUpCall(String toUserId, String fromUserId) {
+    _socketDataSource.emit('disconnect', {'to': toUserId, 'from': fromUserId});
+  }
+
+  @override
+  Stream<List<PeerUserModel>> listenForUserList() {
+    return _socketDataSource.userListStream.map((userListDto) {
+      return userListDto
+          .where((id) => id != _socketDataSource.currentUserId) // Filter out self
           .map((id) => PeerUserMapper.fromDTO(PeerUserDto(id: id)))
           .toList();
     });
   }
 
   @override
-  Stream<CallOfferModel> getOfferStream() {
-    return _socketDataSource.offerStream.map(CallOfferMapper.fromDTO);
+  Stream<CallOfferModel> listenForCallOffers() {
+    return _socketDataSource.offerStream.map((offerDto) => CallOfferMapper.fromDTO(offerDto));
   }
 
   @override
-  Stream<CallAnswerModel> getAnswerStream() {
-    return _socketDataSource.answerStream.map(CallAnswerMapper.fromDTO);
+  Stream<CallAnswerModel> listenForCallAnswer() {
+    return _socketDataSource.answerStream.map((answerDto) => CallAnswerMapper.fromDTO(answerDto));
   }
 
   @override
-  Stream<IceCandidateInfoModel> getIceCandidateStream() {
-    return _socketDataSource.iceCandidateStream.map(IceCandidateMapper.fromDTO);
+  Stream<IceCandidateInfoModel> listenForIceCandidates() {
+    return _socketDataSource.iceCandidateStream
+        .map((candidateDto) => IceCandidateMapper.fromDTO(candidateDto));
   }
 
   @override
-  Stream<String> getHangUpStream() => _socketDataSource.hangUpStream;
-
-  @override
-  Stream<String> getRefusalStream() => _socketDataSource.refusalStream;
-
-  @override
-  Stream<ControlSignalModel> getControlSignalStream() {
-    return _socketDataSource.controlSignalStream.map(
-      ControlSignalMapper.fromDTO,
-    );
+  Stream<String> listenForRefusedCall() {
+    return _socketDataSource.refusalStream;
   }
 
   @override
-  Future<Result<void>> sendOffer(CallOfferModel offer) async {
-    try {
-      _socketDataSource.emit('offer', CallOfferMapper.toDTO(offer).toJson());
-      return const Result.success(null);
-    } catch (e) {
-      return Result.error(e.toString());
-    }
+  Stream<ControlSignalModel> listenForControlSignal() {
+    return _socketDataSource.controlSignalStream
+        .map((dto) => ControlSignalMapper.fromDTO(dto));
+  }
+
+
+  @override
+  void sendIceCandidate(IceCandidateInfoModel candidate) {
+    _socketDataSource.emit('iceCandidate', IceCandidateMapper.toDTO(candidate).toJson());
   }
 
   @override
-  Future<Result<void>> sendAnswer(CallAnswerModel answer) async {
-    try {
-      _socketDataSource.emit('answer', CallAnswerMapper.toDTO(answer).toJson());
-      return const Result.success(null);
-    } catch (e) {
-      return Result.error(e.toString());
-    }
+  void sendControlSignal(ControlSignalModel signal) {
+    _socketDataSource.emit('controlSignal', ControlSignalMapper.toDTO(signal).toJson());
   }
-
-  @override
-  Future<Result<void>> sendIceCandidate(IceCandidateInfoModel candidate) async {
-    try {
-      _socketDataSource.emit(
-        'remoteIceCandidate',
-        IceCandidateMapper.toDTO(candidate).toJson(),
-      );
-      return const Result.success(null);
-    } catch (e) {
-      return Result.error(e.toString());
-    }
-  }
-
-  @override
-  Future<Result<void>> sendRefusal({
-    required String toId,
-    required String fromId,
-  }) async {
-    try {
-      _socketDataSource.emit('refuse', {'to': toId, 'from': fromId});
-      return const Result.success(null);
-    } catch (e) {
-      return Result.error(e.toString());
-    }
-  }
-
-  @override
-  Future<Result<void>> sendHangUp({
-    required String toId,
-    required String fromId,
-  }) async {
-    try {
-      _socketDataSource.emit('disconnectPeer', {'to': toId, 'from': fromId});
-      return const Result.success(null);
-    } catch (e) {
-      return Result.error(e.toString());
-    }
-  }
-
-  @override
-  Future<Result<void>> sendControlSignal(
-    ControlSignalModel controlSignal,
-  ) async {
-    try {
-      _socketDataSource.emit(
-        'controlSignal',
-        ControlSignalMapper.toDTO(controlSignal).toJson(),
-      );
-      return const Result.success(null);
-    } catch (e) {
-      return Result.error(e.toString());
-    }
-  }
-
-  // WebRTC Media & Peer Connection Implementations
-  @override
-  Future<void> initializeRenderers() => _webRTCDataSource.initializeRenderers();
-
-  @override
-  RTCVideoRenderer get localRenderer => _webRTCDataSource.localRenderer;
-
-  @override
-  RTCVideoRenderer get remoteRenderer => _webRTCDataSource.remoteRenderer;
-
-  @override
-  Future<Result<MediaStream?>> getLocalUserMedia({
-    required bool audioOnly,
-  }) async {
-    try {
-      final stream = await _webRTCDataSource.getUserMedia(audioOnly: audioOnly);
-      if (stream != null) return Result.success(stream);
-      return const Result.error("Failed to get user media");
-    } catch (e) {
-      return Result.error(e.toString());
-    }
-  }
-
-  @override
-  Future<void> turnOffLocalMedia(MediaStream? stream) =>
-      _webRTCDataSource.turnOffMediaStream(stream);
 
   @override
   Future<Result<RTCPeerConnection>> createPeerConnection() async {
     try {
-      return Result.success(await _webRTCDataSource.createPc());
+      final pc = await _webRTCDataSource.initializePeerConnection();
+      return Success(pc);
     } catch (e) {
-      return Result.error(e.toString());
+      return Error(e.toString());
     }
   }
 
   @override
-  Future<void> addTrackToPeer(
-    MediaStream stream,
-    RTCPeerConnection peerConnection,
-  ) async {
-    await _webRTCDataSource.addTrackToExistingPeerConnection(
-      stream,
-      peerConnection,
-    );
+  Future<Result<MediaStream>> turnOnLocalMediaStream(
+      {required bool audioOnly, required RTCVideoRenderer localRenderer}) async {
+    try {
+      final stream = await _webRTCDataSource.gettingUserMedia(audioOnly: audioOnly, localRenderer: localRenderer);
+      if (stream != null) {
+        return Success(stream);
+      } else {
+        return Error("Failed to get local media stream.");
+      }
+    } catch (e) {
+      return Error(e.toString());
+    }
   }
 
   @override
-  Future<void> setLocalDescription(
-    RTCSessionDescription description,
-    RTCPeerConnection peerConnection,
-  ) async {
-    await peerConnection.setLocalDescription(description);
+  Future<void> turnOffMediaStream(MediaStream? stream, RTCVideoRenderer localRenderer) async {
+    await _webRTCDataSource.turnOffMediaStream(stream, localRenderer);
   }
 
   @override
-  Future<void> setRemoteDescription(
-    RTCSessionDescription description,
-    RTCPeerConnection peerConnection,
-  ) async {
-    await peerConnection.setRemoteDescription(description);
+  Future<void> addTrackToPeerConnection(MediaStream stream, RTCPeerConnection peerConnection) async {
+    await _webRTCDataSource.addTrackToExistingPeerConnection(stream, peerConnection);
   }
 
   @override
-  Future<void> addIceCandidateToPeer(
-    RTCIceCandidate candidate,
-    RTCPeerConnection peerConnection,
-  ) async {
-    await peerConnection.addCandidate(candidate);
+  Future<RTCSessionDescription> createSdpOffer(RTCPeerConnection peerConnection) async {
+    return await _webRTCDataSource.createSdpOffer(peerConnection);
   }
 
   @override
-  Stream<MediaStream> getOnTrackStream(RTCPeerConnection peerConnection) =>
-      _webRTCDataSource.onTrackStream(peerConnection);
-
-  @override
-  Stream<RTCIceCandidate> getOnIceCandidateStream(
-    RTCPeerConnection peerConnection,
-  ) => _webRTCDataSource.onIceCandidateGeneratedStream(peerConnection);
-
-  @override
-  Stream<RTCPeerConnectionState> getOnConnectionStateStream(
-    RTCPeerConnection peerConnection,
-  ) => _webRTCDataSource.onConnectionStateChangeStream(peerConnection);
-
-  @override
-  Future<RTCSessionDescription> createSdpOffer(
-    RTCPeerConnection peerConnection, {
-    required bool audioOnly,
-  }) async {
-    return await peerConnection.createOffer({
-      'mandatory': {
-        'OfferToReceiveAudio': true,
-        'OfferToReceiveVideo': !audioOnly,
-      },
-    });
+  Future<RTCSessionDescription> createSdpAnswer(RTCPeerConnection peerConnection) async {
+    return await _webRTCDataSource.createSdpAnswer(peerConnection);
   }
 
   @override
-  Future<RTCSessionDescription> createSdpAnswer(
-    RTCPeerConnection peerConnection, {
-    required bool audioOnly,
-  }) async {
-    return await peerConnection.createAnswer({
-      'mandatory': {
-        'OfferToReceiveAudio': true,
-        'OfferToReceiveVideo': !audioOnly,
-      },
-    });
+  Future<void> settingLocalDescription(
+      RTCPeerConnection peerConnection, RTCSessionDescription description) async {
+    await _webRTCDataSource.setLocalDescription(peerConnection, description);
+  }
+
+  @override
+  Future<void> settingRemoteDescription(
+      RTCPeerConnection peerConnection, RTCSessionDescription description) async {
+    await _webRTCDataSource.setRemoteDescription(peerConnection, description);
+  }
+
+  @override
+  Future<void> addingIceCandidate(RTCIceCandidate candidate, RTCPeerConnection peerConnection) async {
+    await _webRTCDataSource.appendIceCandidate(candidate, peerConnection);
+  }
+
+  @override
+  Stream<MediaStream> getOnTrackStream(RTCPeerConnection peerConnection, RTCVideoRenderer remoteRenderer) {
+    return _webRTCDataSource.onTrackStream(peerConnection, remoteRenderer);
+  }
+
+  @override
+  Stream<RTCIceCandidate> getOnIceCandidateStream(RTCPeerConnection peerConnection) {
+    return _webRTCDataSource.onIceCandidateGeneratedStream(peerConnection);
+  }
+
+  @override
+  Stream<RTCPeerConnectionState> getOnConnectionStateStream(RTCPeerConnection peerConnection) {
+    return _webRTCDataSource.onConnectionStateChangeStream(peerConnection);
   }
 
   @override
   Future<void> disposePeerConnection(RTCPeerConnection? peerConnection) async {
-    await peerConnection?.close();
-    // Also potentially clear local/remote renderer srcObject
-    _webRTCDataSource.localRenderer.srcObject = null;
-    _webRTCDataSource.remoteRenderer.srcObject = null;
+    if (peerConnection != null) {
+      await peerConnection.close();
+      await peerConnection.dispose();
+    }
   }
 
   @override
-  void disposeRenderers() {
-    _webRTCDataSource.disposeAllRenderers();
+  Stream<String> getOnHangUpStream() {
+    return _socketDataSource.hangUpStream;
   }
 }

@@ -1,106 +1,46 @@
-import 'dart:async';
-
+// domain/repository/webrtc_repository.dart
 import 'package:flutter_webrtc/flutter_webrtc.dart';
-
-import '../../data/core/result.dart';
+import 'package:kolibri_project/data/core/result.dart';
 import '../model/call_answer_model.dart';
 import '../model/call_offer_model.dart';
 import '../model/control_signal_model.dart';
 import '../model/ice_candidate_info_model.dart';
 import '../model/peer_user_model.dart';
 
-abstract class WebrtcRepository {
-  // Signaling Connection
-  Future<Result<String>> connectSignaling(String serverUrl);
+abstract class WebRTCRepository {
+  // Signaling related methods
+  Stream<Result<String>> connectSignaling(String url);
+  void disconnectSignaling(); // Added if not present
+  void callPeer(CallOfferModel offer);
+  void acceptIncomingCall(CallAnswerModel answer);
+  void declineIncomingCall(String toUserId);
+  void hangUpCall(String toUserId, String fromUserId);
+  void sendIceCandidate(IceCandidateInfoModel candidate);
+  void sendControlSignal(ControlSignalModel signal);
 
-  Future<void> disconnectSignaling();
+  // Listening streams
+  Stream<List<PeerUserModel>> listenForUserList();
+  Stream<CallOfferModel> listenForCallOffers();
+  Stream<CallAnswerModel> listenForCallAnswer();
+  Stream<IceCandidateInfoModel> listenForIceCandidates();
+  Stream<String> listenForRefusedCall();
+  Stream<ControlSignalModel> listenForControlSignal();
+  Stream<MediaStream> getOnTrackStream(RTCPeerConnection peerConnection, RTCVideoRenderer remoteRenderer);
+  Stream<RTCIceCandidate> getOnIceCandidateStream(RTCPeerConnection peerConnection);
+  Stream<RTCPeerConnectionState> getOnConnectionStateStream(RTCPeerConnection peerConnection);
+  Stream<String> getOnHangUpStream();
 
-  Stream<List<PeerUserModel>> getOnlineUsersStream(); // Stream of user lists
-  Stream<CallOfferModel> getOfferStream();
 
-  Stream<CallAnswerModel> getAnswerStream();
 
-  Stream<IceCandidateInfoModel> getIceCandidateStream();
-
-  Stream<String> getHangUpStream(); // Emits ID of user who hung up
-  Stream<String> getRefusalStream(); // Emits ID of user who refused
-  Stream<ControlSignalModel> getControlSignalStream(); // Domain model
-
-  // Signaling Actions
-  Future<Result<void>> sendOffer(CallOfferModel offer);
-
-  Future<Result<void>> sendAnswer(CallAnswerModel answer);
-
-  Future<Result<void>> sendIceCandidate(IceCandidateInfoModel candidate);
-
-  Future<Result<void>> sendRefusal({
-    required String toId,
-    required String fromId,
-  });
-
-  Future<Result<void>> sendHangUp({
-    required String toId,
-    required String fromId,
-  });
-
-  Future<Result<void>> sendControlSignal(
-    ControlSignalModel controlSignal,
-  ); // Domain model
-
-  // WebRTC Media & Peer Connection
-  Future<void> initializeRenderers();
-
-  RTCVideoRenderer get localRenderer;
-
-  RTCVideoRenderer get remoteRenderer;
-
-  Future<Result<MediaStream?>> getLocalUserMedia({required bool audioOnly});
-
-  Future<void> turnOffLocalMedia(MediaStream? stream);
-
+  // WebRTC media and peer connection methods
   Future<Result<RTCPeerConnection>> createPeerConnection();
-
-  Future<void> addTrackToPeer(
-    MediaStream stream,
-    RTCPeerConnection peerConnection,
-  );
-
-  Future<void> setLocalDescription(
-    RTCSessionDescription description,
-    RTCPeerConnection peerConnection,
-  );
-
-  Future<void> setRemoteDescription(
-    RTCSessionDescription description,
-    RTCPeerConnection peerConnection,
-  );
-
-  Future<void> addIceCandidateToPeer(
-    RTCIceCandidate candidate,
-    RTCPeerConnection peerConnection,
-  );
-
+  Future<Result<MediaStream>> turnOnLocalMediaStream({required bool audioOnly, required RTCVideoRenderer localRenderer});
+  Future<void> turnOffMediaStream(MediaStream? stream, RTCVideoRenderer localRenderer);
+  Future<void> addTrackToPeerConnection(MediaStream stream, RTCPeerConnection peerConnection);
+  Future<RTCSessionDescription> createSdpOffer(RTCPeerConnection peerConnection);
+  Future<RTCSessionDescription> createSdpAnswer(RTCPeerConnection peerConnection);
+  Future<void> settingLocalDescription(RTCPeerConnection peerConnection, RTCSessionDescription description);
+  Future<void> settingRemoteDescription(RTCPeerConnection peerConnection, RTCSessionDescription description);
+  Future<void> addingIceCandidate(RTCIceCandidate candidate, RTCPeerConnection peerConnection);
   Future<void> disposePeerConnection(RTCPeerConnection? peerConnection);
-
-  Stream<MediaStream> getOnTrackStream(RTCPeerConnection peerConnection);
-
-  Stream<RTCIceCandidate> getOnIceCandidateStream(
-    RTCPeerConnection peerConnection,
-  );
-
-  Stream<RTCPeerConnectionState> getOnConnectionStateStream(
-    RTCPeerConnection peerConnection,
-  );
-
-  Future<RTCSessionDescription> createSdpOffer(
-    RTCPeerConnection peerConnection, {
-    required bool audioOnly,
-  });
-
-  Future<RTCSessionDescription> createSdpAnswer(
-    RTCPeerConnection peerConnection, {
-    required bool audioOnly,
-  });
-
-  void disposeRenderers();
 }

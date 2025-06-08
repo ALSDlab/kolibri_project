@@ -1,15 +1,11 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
-// Assuming flutter_joystick is in pubspec.yaml
-// dependencies:
-//   flutter_joystick: ^latest_version
 import 'package:flutter_joystick/flutter_joystick.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:kolibri_project/view/pages/webrtc_page/webrtc_page_view_model.dart';
-import 'package:provider/provider.dart'; // If using Provider to access ViewModel
+import 'package:provider/provider.dart';
 
 import '../../../domain/model/control_signal_model.dart' as domain_cs;
+import 'webrtc_page_state.dart'; // Import AppScreenState
 
 class WebrtcCallPage extends StatefulWidget {
   const WebrtcCallPage({super.key});
@@ -21,18 +17,21 @@ class WebrtcCallPage extends StatefulWidget {
 class _WebrtcCallPageState extends State<WebrtcCallPage> {
   final ValueNotifier<bool> _showControlsNotifier = ValueNotifier<bool>(true);
 
-  // For gesture handling if needed for advanced controls, not just basic signals
-  // double _currentZoom = 1.0;
-  // Offset _currentPan = Offset.zero;
-
   @override
   void initState() {
     super.initState();
     final viewModel = context.read<WebRTCViewModel>();
-    viewModel.setCallViewContext(context); // For programmatic pop
-    // Auto-hide controls after a few seconds
+    viewModel.setCallViewContext(context);
+
+    // Auto-hide controls after a few seconds if not interacted with
+    _startHideControlsTimer();
+  }
+
+  void _startHideControlsTimer() {
     Future.delayed(const Duration(seconds: 5), () {
-      if (mounted) _showControlsNotifier.value = false;
+      if (_showControlsNotifier.value) {
+        _showControlsNotifier.value = false;
+      }
     });
   }
 
@@ -40,216 +39,157 @@ class _WebrtcCallPageState extends State<WebrtcCallPage> {
   void dispose() {
     _showControlsNotifier.dispose();
     final viewModel = context.read<WebRTCViewModel>();
-    viewModel.clearCallViewContext();
+    viewModel.clearCallViewContext(); // Clear context when view is disposed
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final viewModel = context.watch<WebRTCViewModel>();
-    // Using Consumer to react to ViewModel state changes
-    return WillPopScope(
-      onWillPop: () async {
-        await viewModel
-            .endCall(); // ViewModel's endCall will pop if context is set
-        return false; // Let ViewModel handle pop, or return true if it doesn't.
-        // Since endCall handles pop, returning false prevents double pop.
+    final state = viewModel.state;
+
+    // Ensure we are in a call state before rendering call-specific UI
+    if (state.screenState != AppScreenState.inCall) {
+      // If we are not in call state, return a placeholder or navigate back.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (Navigator.canPop(context)) {
+          Navigator.pop(context);
+        }
+      });
+      return const Scaffold(
+        body: Center(child: Text("Not in a call. Redirecting...")),
+      );
+    }
+
+    return PopScope(
+      // Use PopScope instead of WillPopScope for newer Flutter versions
+      canPop: false, // Prevent accidental back navigation
+      onPopInvoked: (didPop) async {
+        if (didPop) {
+          return;
+        }
+        // Show confirmation dialog before hanging up or just hang up directly
+        await viewModel.hangUp();
+        // Allow pop after hanging up
+        if (context.mounted) {
+          if (Navigator.canPop(context)) {
+            Navigator.pop(context);
+          }
+        }
       },
-      child: Scaffold(
-        backgroundColor: Colors.black, // Usually call screens are dark
-        body: GestureDetector(
-          onTap: () {
-            _showControlsNotifier.value = !_showControlsNotifier.value;
-          },
-          onScaleUpdate: (details) {
-            // For Zoom and Pan gestures
-            if (details.scale != 1.0) {
-              // Zoom
-              viewModel.sendControlSignal(
-                domain_cs.ControlSignalModel(
-                  to: viewModel.state.remotePeerId ?? '',
-                  type: domain_cs.ControlSignalType.zoom,
-                  scale: details.scale,
-                ),
-              );
-            } else if (details.focalPointDelta.distanceSquared > 0) {
-              // Pan/Drag
-              viewModel.sendControlSignal(
-                domain_cs.ControlSignalModel(
-                  to: viewModel.state.remotePeerId ?? '',
-                  type: domain_cs.ControlSignalType.drag,
-                  dx: details.focalPointDelta.dx,
-                  dy: details.focalPointDelta.dy,
-                ),
-              );
-            }
-          },
-          child: SafeArea(
+      child: SafeArea(
+        child: Scaffold(
+          body: GestureDetector(
+            onTap: () {
+              _showControlsNotifier.value = !_showControlsNotifier.value;
+              _startHideControlsTimer(); // Reset timer on interaction
+            },
             child: Stack(
-              children: <Widget>[
-                // Remote Video (Full Screen)
-                if (viewModel.state.remoteVideoVisible &&
-                    viewModel.remoteRenderer.textureId != null)
-                  Positioned.fill(
-                    child: RTCVideoView(
-                      viewModel.remoteRenderer,
-                      objectFit:
-                          RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
-                      mirror: false,
-                    ),
-                  )
-                else if (!viewModel
-                    .state
-                    .audioOnlyCall) // Show placeholder if video call & no remote video
-                  Container(
-                    color: Colors.grey[800],
-                    child: const Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.white,
+              children: [
+                // Remote video (full screen)
+                Positioned.fill(
+                  child:
+                      (viewModel.remoteRenderer.srcObject != null && state.remoteVideoVisible) // Use state.remoteVideoVisible
+                      ? RTCVideoView(
+                          viewModel.remoteRenderer,
+                          objectFit:
+                              RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                        )
+                      : Container(
+                          color: Colors.black,
+                          child: Center(
+                            child: Icon(
+                              state.audioOnlyCall
+                                  ? Icons.mic
+                                  : Icons.person_off,
+                              // Show mic icon if audio only, else person_off
+                              color: Colors.blue,
+                              size: 100,
                             ),
                           ),
-                          SizedBox(height: 16),
-                          Text(
-                            "Waiting for peer's video...",
-                            style: TextStyle(color: Colors.white70),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                // If Audio only call, show an avatar or indicator
-                if (viewModel.state.audioOnlyCall)
-                  Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.person,
-                          size: 100,
-                          color: Colors.white54,
                         ),
-                        const SizedBox(height: 10),
-                        Text(
-                          "Audio Call with ${viewModel.state.remotePeerId ?? 'peer'}",
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                // Local Video (Small PiP)
-                if (viewModel.state.localVideoEnabled &&
-                    viewModel.localRenderer.textureId != null &&
-                    !viewModel.state.audioOnlyCall)
-                  Positioned(
-                    top: 20.0,
-                    right: 20.0,
-                    child: SizedBox(
-                      width: 100,
-                      height: 150,
-                      child: RTCVideoView(
-                        viewModel.localRenderer,
-                        objectFit:
-                            RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
-                        mirror: true,
-                      ),
-                    ),
-                  )
-                else if (!viewModel
-                    .state
-                    .audioOnlyCall) // Placeholder if local video is off
-                  Positioned(
-                    top: 20.0,
-                    right: 20.0,
-                    child: Container(
-                      width: 100,
-                      height: 150,
-                      color: Colors.black54,
-                      child: const Center(
-                        child: Icon(
-                          Icons.videocam_off,
-                          color: Colors.white,
-                          size: 30,
-                        ),
-                      ),
-                    ),
-                  ),
-
-                // Joystick (bottom-left)
-                ValueListenableBuilder<bool>(
-                  valueListenable: _showControlsNotifier,
-                  builder: (_, show, __) => show
-                      ? Positioned(
-                          bottom: 100.0, // Adjust based on other controls
-                          left: 30.0,
-                          child: Joystick(
-                            mode: JoystickMode.all,
-                            listener: (details) {
-                              if ((details.x.abs() > 0.05 ||
-                                      details.y.abs() > 0.05) &&
-                                  viewModel.state.myId != null &&
-                                  viewModel.state.remotePeerId != null) {
-                                // Deadzone
-                                viewModel.sendControlSignal(
-                                  domain_cs.ControlSignalModel(
-                                    to: viewModel.state.remotePeerId!,
-                                    type: domain_cs.ControlSignalType.joystick,
-                                    angle: atan2(
-                                      details.y.abs(),
-                                      details.x.abs(),
-                                    ),
-                                    // Radians
-                                    intensity: sqrt(
-                                      pow(details.x.abs(), 2) +
-                                          pow(details.y.abs(), 2),
-                                    ), // 0.0 to 1.0
-                                  ),
-                                );
-                              }
-                            },
-                          ),
-                        )
-                      : const SizedBox.shrink(),
                 ),
-
-                // Call Control Buttons (Bottom Center)
+                // Local video (small preview)
+                Align(
+                  alignment: Alignment.topRight,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: SizedBox(
+                      width: 90,
+                      height: 120,
+                      child:
+                          (viewModel.localRenderer.srcObject != null &&
+                              state
+                                  .localVideoEnabled) // Use state.localVideoEnabled
+                          ? RTCVideoView(
+                              viewModel.localRenderer,
+                              objectFit: RTCVideoViewObjectFit
+                                  .RTCVideoViewObjectFitCover,
+                            )
+                          : Container(
+                              color: Colors.black54,
+                              child: Center(
+                                child: Icon(
+                                  state.audioOnlyCall
+                                      ? Icons.mic
+                                      : Icons.videocam_off,
+                                  // Show mic if audio only, else videocam_off
+                                  color: Colors.white,
+                                  size: 40,
+                                ),
+                              ),
+                            ),
+                    ),
+                  ),
+                ),
+                _buildControlSignalOverlay(viewModel),
+                Align(
+                  alignment: Alignment.bottomLeft,
+                  child: ValueListenableBuilder<bool>(
+                    valueListenable: _showControlsNotifier,
+                    builder: (context, showControls, child) {
+                      return showControls
+                          ? Joystick(
+                              mode: JoystickMode.all,
+                              listener: (details) {
+                                // Deadzone check for joystick input
+                                if ((details.x.abs() > 0.05 ||
+                                        details.y.abs() > 0.05) &&
+                                    state.myId != null &&
+                                    state.remotePeerId != null) {
+                                  viewModel.sendControlSignal(
+                                    domain_cs.ControlSignalModel(
+                                      to: state.remotePeerId!,
+                                      type:
+                                          domain_cs.ControlSignalType.joystick,
+                                      // You might use a specific type for joystick
+                                      dx: details.x,
+                                      dy: details.y,
+                                    ),
+                                  );
+                                }
+                              },
+                            )
+                          : const SizedBox.shrink();
+                    },
+                  ),
+                ),
+                // Overlay controls (buttons)
                 ValueListenableBuilder<bool>(
                   valueListenable: _showControlsNotifier,
-                  builder: (_, show, __) => show
-                      ? Align(
-                          alignment: Alignment.bottomCenter,
-                          child: Padding(
-                            padding: const EdgeInsets.only(bottom: 30.0),
+                  builder: (context, showControls, child) {
+                    return showControls
+                        ? Positioned(
+                            bottom: 20,
+                            left: 0,
+                            right: 0,
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: <Widget>[
-                                if (!viewModel
-                                    .state
-                                    .audioOnlyCall) // Show video toggle only for video calls
-                                  FloatingActionButton(
-                                    heroTag: "videoToggleBtnCallView",
-                                    onPressed: viewModel.toggleLocalMedia,
-                                    backgroundColor: Colors.white70,
-                                    child: Icon(
-                                      viewModel.state.localVideoEnabled
-                                          ? Icons.videocam
-                                          : Icons.videocam_off,
-                                      color: Colors.black87,
-                                    ),
-                                  ),
+                              children: [
                                 FloatingActionButton(
-                                  heroTag: "endCallBtnCallView",
+                                  heroTag: "hangUpBtnCallView",
                                   onPressed: () async {
-                                    await viewModel.endCall();
-                                    // Pop should be handled by endCall via context
+                                    await viewModel.hangUp();
                                   },
                                   backgroundColor: Colors.red,
                                   child: const Icon(
@@ -258,32 +198,90 @@ class _WebrtcCallPageState extends State<WebrtcCallPage> {
                                   ),
                                 ),
                                 FloatingActionButton(
-                                  // Example: Mic mute
                                   heroTag: "micToggleBtnCallView",
-                                  onPressed: () {
-                                    // TODO: Implement mic mute/unmute in ViewModel & Repository
-                                    // viewModel.toggleMicrophone();
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text("Mic Toggle TBD"),
-                                      ),
-                                    );
+                                  onPressed: () async {
+                                    await viewModel.toggleMicrophone();
                                   },
                                   backgroundColor: Colors.white70,
-                                  child: const Icon(
-                                    Icons.mic,
+                                  child: Icon(
+                                    viewModel.localStream
+                                                ?.getAudioTracks()
+                                                .firstOrNull
+                                                ?.enabled ==
+                                            true
+                                        ? Icons.mic
+                                        : Icons.mic_off,
                                     color: Colors.black87,
-                                  ), // Update based on mic state
+                                  ),
                                 ),
+                                FloatingActionButton(
+                                  heroTag: "camToggleBtnCallView",
+                                  onPressed: () async {
+                                    await viewModel.toggleCamera();
+                                  },
+                                  backgroundColor: Colors.white70,
+                                  child: Icon(
+                                    viewModel.localStream
+                                                ?.getVideoTracks()
+                                                .firstOrNull
+                                                ?.enabled ==
+                                            true
+                                        ? Icons.videocam
+                                        : Icons.videocam_off,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                                // Add more controls as needed (e.g., switch camera)
                               ],
                             ),
-                          ),
-                        )
-                      : const SizedBox.shrink(),
+                          )
+                        : const SizedBox.shrink();
+                  },
                 ),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildControlSignalOverlay(WebRTCViewModel viewModel) {
+    final signal = viewModel.state.lastReceivedControlSignal;
+    if (signal == null) {
+      return const SizedBox.shrink(); // 신호가 없으면 아무것도 표시하지 않음
+    }
+
+    String signalText = 'Received Signal:\n';
+    signalText += 'Type: ${signal.type.toString().split('.').last}\n';
+    if (signal.dx != null) {
+      signalText += 'dx: ${signal.dx?.toStringAsFixed(2)}\n';
+    }
+    if (signal.dy != null) {
+      signalText += 'dy: ${signal.dy?.toStringAsFixed(2)}\n';
+    }
+    if (signal.scale != null) {
+      signalText += 'scale: ${signal.scale?.toStringAsFixed(2)}\n';
+    }
+    if (signal.angle != null) {
+      signalText += 'angle: ${signal.angle?.toStringAsFixed(2)}\n';
+    }
+    if (signal.intensity != null) {
+      signalText += 'intensity: ${signal.intensity?.toStringAsFixed(2)}';
+    }
+
+    return Positioned(
+      top: 20.0,
+      left: 20.0,
+      child: Container(
+        padding: const EdgeInsets.all(8.0),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.6),
+          borderRadius: BorderRadius.circular(8.0),
+        ),
+        child: Text(
+          signalText,
+          style: const TextStyle(color: Colors.white, fontSize: 12),
         ),
       ),
     );

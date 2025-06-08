@@ -1,13 +1,13 @@
-import '../../../../data/core/result.dart';
+// domain/use_case/webrtc/signaling/send_control_signal_use_case.dart
 import '../../../model/control_signal_model.dart';
 import '../../../repository/webrtc_repository.dart';
 
 class SendControlSignalUseCase {
-  final WebrtcRepository _repository;
+  final WebRTCRepository _repository;
 
-  SendControlSignalUseCase({required WebrtcRepository chatDataRepository})
-    : _repository = chatDataRepository;
+  SendControlSignalUseCase(this._repository);
 
-  Future<Result<void>> call(ControlSignalModel signal) =>
-      _repository.sendControlSignal(signal);
+  void call(ControlSignalModel signal) {
+    _repository.sendControlSignal(signal);
+  }
 }
