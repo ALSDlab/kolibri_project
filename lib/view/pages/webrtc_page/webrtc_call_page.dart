@@ -47,9 +47,12 @@ class _WebrtcCallPageState extends State<WebrtcCallPage> {
   Widget build(BuildContext context) {
     final viewModel = context.watch<WebRTCViewModel>();
     final state = viewModel.state;
+    final isCallActive =
+        state.screenState == AppScreenState.inCall ||
+        state.screenState == AppScreenState.loading;
 
     // Ensure we are in a call state before rendering call-specific UI
-    if (state.screenState != AppScreenState.inCall) {
+    if (!isCallActive) {
       // If we are not in call state, return a placeholder or navigate back.
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (Navigator.canPop(context)) {
@@ -87,59 +90,13 @@ class _WebrtcCallPageState extends State<WebrtcCallPage> {
             child: Stack(
               children: [
                 // Remote video (full screen)
-                Positioned.fill(
-                  child:
-                      (viewModel.remoteRenderer.srcObject != null && state.remoteVideoVisible) // Use state.remoteVideoVisible
-                      ? RTCVideoView(
-                          viewModel.remoteRenderer,
-                          objectFit:
-                              RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
-                        )
-                      : Container(
-                          color: Colors.black,
-                          child: Center(
-                            child: Icon(
-                              state.audioOnlyCall
-                                  ? Icons.mic
-                                  : Icons.person_off,
-                              // Show mic icon if audio only, else person_off
-                              color: Colors.blue,
-                              size: 100,
-                            ),
-                          ),
-                        ),
-                ),
+                Positioned.fill(child: _buildRemoteVideoView(viewModel, state)),
                 // Local video (small preview)
                 Align(
                   alignment: Alignment.topRight,
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
-                    child: SizedBox(
-                      width: 90,
-                      height: 120,
-                      child:
-                          (viewModel.localRenderer.srcObject != null &&
-                              state
-                                  .localVideoEnabled) // Use state.localVideoEnabled
-                          ? RTCVideoView(
-                              viewModel.localRenderer,
-                              objectFit: RTCVideoViewObjectFit
-                                  .RTCVideoViewObjectFitCover,
-                            )
-                          : Container(
-                              color: Colors.black54,
-                              child: Center(
-                                child: Icon(
-                                  state.audioOnlyCall
-                                      ? Icons.mic
-                                      : Icons.videocam_off,
-                                  // Show mic if audio only, else videocam_off
-                                  color: Colors.white,
-                                  size: 40,
-                                ),
-                              ),
-                            ),
-                    ),
+                    child: _buildLocalVideoView(viewModel, state),
                   ),
                 ),
                 _buildControlSignalOverlay(viewModel),
@@ -175,73 +132,150 @@ class _WebrtcCallPageState extends State<WebrtcCallPage> {
                   ),
                 ),
                 // Overlay controls (buttons)
-                ValueListenableBuilder<bool>(
-                  valueListenable: _showControlsNotifier,
-                  builder: (context, showControls, child) {
-                    return showControls
-                        ? Positioned(
-                            bottom: 20,
-                            left: 0,
-                            right: 0,
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: [
-                                FloatingActionButton(
-                                  heroTag: "hangUpBtnCallView",
-                                  onPressed: () async {
-                                    await viewModel.hangUp();
-                                  },
-                                  backgroundColor: Colors.red,
-                                  child: const Icon(
-                                    Icons.call_end,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                FloatingActionButton(
-                                  heroTag: "micToggleBtnCallView",
-                                  onPressed: () async {
-                                    await viewModel.toggleMicrophone();
-                                  },
-                                  backgroundColor: Colors.white70,
-                                  child: Icon(
-                                    viewModel.localStream
-                                                ?.getAudioTracks()
-                                                .firstOrNull
-                                                ?.enabled ==
-                                            true
-                                        ? Icons.mic
-                                        : Icons.mic_off,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                                FloatingActionButton(
-                                  heroTag: "camToggleBtnCallView",
-                                  onPressed: () async {
-                                    await viewModel.toggleCamera();
-                                  },
-                                  backgroundColor: Colors.white70,
-                                  child: Icon(
-                                    viewModel.localStream
-                                                ?.getVideoTracks()
-                                                .firstOrNull
-                                                ?.enabled ==
-                                            true
-                                        ? Icons.videocam
-                                        : Icons.videocam_off,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                                // Add more controls as needed (e.g., switch camera)
-                              ],
-                            ),
-                          )
-                        : const SizedBox.shrink();
-                  },
+                Positioned(
+                  bottom: 20,
+                  left: 0,
+                  right: 0,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      FloatingActionButton(
+                        heroTag: "hangUpBtnCallView",
+                        onPressed: () async {
+                          await viewModel.hangUp();
+                        },
+                        backgroundColor: Colors.red,
+                        child: const Icon(Icons.call_end, color: Colors.white),
+                      ),
+                      FloatingActionButton(
+                        heroTag: "micToggleBtnCallView",
+                        onPressed: () async {
+                          await viewModel.toggleMicrophone();
+                        },
+                        backgroundColor: Colors.white70,
+                        child: Icon(
+                          viewModel.localStream
+                                      ?.getAudioTracks()
+                                      .firstOrNull
+                                      ?.enabled ==
+                                  true
+                              ? Icons.mic
+                              : Icons.mic_off,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      FloatingActionButton(
+                        heroTag: "camToggleBtnCallView",
+                        onPressed: () async {
+                          await viewModel.toggleCamera();
+                        },
+                        backgroundColor: Colors.white70,
+                        child: Icon(
+                          viewModel.localStream
+                                      ?.getVideoTracks()
+                                      .firstOrNull
+                                      ?.enabled ==
+                                  true
+                              ? Icons.videocam
+                              : Icons.videocam_off,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      // Add more controls as needed (e.g., switch camera)
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildRemoteVideoView(
+    WebRTCViewModel viewModel,
+    WebrtcPageState state,
+  ) {
+    final hasRemoteVideo =
+        viewModel.remoteRenderer.srcObject != null && state.remoteVideoVisible;
+
+    debugPrint(
+      '[UI] Remote video - srcObject: ${viewModel.remoteRenderer.srcObject != null}, visible: ${state.remoteVideoVisible}',
+    );
+
+    if (hasRemoteVideo) {
+      return Container(
+        color: Colors.black,
+        child: RTCVideoView(
+          viewModel.remoteRenderer,
+          objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+          mirror: false, // 원격 비디오는 미러링하지 않음
+          filterQuality: FilterQuality.medium,
+        ),
+      );
+    } else {
+      return Container(
+        color: Colors.black,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                state.audioOnlyCall ? Icons.mic : Icons.person_off,
+                color: Colors.blue,
+                size: 100,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                state.audioOnlyCall
+                    ? 'Audio Only Call'
+                    : 'Waiting for video...',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+  }
+
+  // 로컬 비디오 뷰 개선
+  Widget _buildLocalVideoView(
+    WebRTCViewModel viewModel,
+    WebrtcPageState state,
+  ) {
+    final hasLocalVideo =
+        viewModel.localRenderer.srcObject != null && state.localVideoEnabled;
+
+    return Container(
+      width: 90,
+      height: 120,
+      decoration: BoxDecoration(
+        color: Colors.black54,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white24, width: 1),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: hasLocalVideo
+            ? RTCVideoView(
+                viewModel.localRenderer,
+                objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                mirror: true, // 로컬 비디오는 미러링
+                filterQuality: FilterQuality.medium,
+              )
+            : Center(
+                child: Icon(
+                  state.audioOnlyCall ? Icons.mic : Icons.videocam_off,
+                  color: Colors.white,
+                  size: 40,
+                ),
+              ),
       ),
     );
   }

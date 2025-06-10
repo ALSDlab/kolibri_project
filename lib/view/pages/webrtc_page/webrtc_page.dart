@@ -13,6 +13,38 @@ class WebrtcPage extends StatefulWidget {
 
 class _WebrtcPageState extends State<WebrtcPage> {
   @override
+  void initState() {
+    super.initState();
+
+    // ViewModel 상태 변화를 감지하여 자동으로 화면 전환
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final viewModel = context.read<WebRTCViewModel>();
+      viewModel.addListener(_onViewModelStateChanged);
+    });
+  }
+
+  void _onViewModelStateChanged() {
+    final viewModel = context.read<WebRTCViewModel>();
+    final state = viewModel.state;
+
+    // inCall 상태가 되면 자동으로 call 화면으로 이동
+    if (state.screenState == AppScreenState.inCall &&
+        ModalRoute.of(context)?.settings.name != '/webrtc_call_page') {
+      debugPrint('[UI] Auto-navigating to call view due to state change');
+      _navigateToCallView(context, viewModel);
+    }
+  }
+
+  @override
+  void dispose() {
+    final viewModel = context.read<WebRTCViewModel>();
+    viewModel.removeListener(_onViewModelStateChanged);
+    super.dispose();
+  }
+
+
+
+  @override
   Widget build(BuildContext context) {
     // Use Consumer for parts of the UI that need to rebuild when ViewModel notifies listeners
     final viewModel = context.watch<WebRTCViewModel>();
@@ -73,9 +105,6 @@ class _WebrtcPageState extends State<WebrtcPage> {
                                       user,
                                       audioOnly: true,
                                     );
-                                    if (context.mounted) {
-                                      _navigateToCallView(context, viewModel);
-                                    }
                                   },
                                   tooltip: 'Audio Call',
                                 ),
@@ -89,9 +118,6 @@ class _WebrtcPageState extends State<WebrtcPage> {
                                       user,
                                       audioOnly: false,
                                     );
-                                    if (context.mounted) {
-                                      _navigateToCallView(context, viewModel);
-                                    }
                                   },
                                   tooltip: 'Video Call',
                                 ),
@@ -141,11 +167,6 @@ class _WebrtcPageState extends State<WebrtcPage> {
                     heroTag: "acceptCallBtn",
                     onPressed: () async {
                       await viewModel.acceptIncomingCall();
-                      if (viewModel.state.screenState ==
-                          AppScreenState.inCall) {
-                        // ignore: use_build_context_synchronously
-                        _navigateToCallView(context, viewModel);
-                      }
                     },
                     backgroundColor: Colors.green,
                     child: Icon(

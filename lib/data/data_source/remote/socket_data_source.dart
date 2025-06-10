@@ -98,7 +98,7 @@ class SocketDataSource {
 
       // Offer 수신
       _socket!.on('offer', (rawData) {
-        debugPrint('[SocketDataSource] Received offer: $rawData');
+        debugPrint('[SocketDataSource] Received offer');
         if (rawData is Map<String, dynamic>) {
           try {
             _offerController.add(CallOfferDto.fromJson(rawData));
@@ -112,7 +112,7 @@ class SocketDataSource {
 
       // Answer 수신
       _socket!.on('answer', (rawData) {
-        debugPrint('[SocketDataSource] Received answer: $rawData');
+        debugPrint('[SocketDataSource] Received answer');
         if (rawData is Map<String, dynamic>) {
           try {
             _answerController.add(CallAnswerDto.fromJson(rawData));
@@ -192,12 +192,17 @@ class SocketDataSource {
     return completer.future;
   }
 
+  // 사용자 목록을 서버에 요청하는 메서드
+  void requestUserList() {
+    emit('requestUserList', null); // 데이터 없이 이벤트 이름만 보냅니다.
+  }
+
   // Offer 전송 - 서버가 기대하는 필드명 사용
   void sendOffer(CallOfferDto offer) {
     if (_socket?.connected == true) {
       final data = offer.toJson();
       _socket!.emit('offer', data);
-      debugPrint('[SocketDataSource] Sent offer: $data');
+      debugPrint('[SocketDataSource] Sent offer');
     } else {
       debugPrint('[SocketDataSource] Cannot send offer, socket not connected.');
     }
@@ -208,7 +213,7 @@ class SocketDataSource {
     if (_socket?.connected == true) {
       final data = answer.toJson();
       _socket!.emit('answer', data);
-      debugPrint('[SocketDataSource] Sent answer: $data');
+      debugPrint('[SocketDataSource] Sent answer');
     } else {
       debugPrint(
         '[SocketDataSource] Cannot send answer, socket not connected.',

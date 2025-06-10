@@ -156,6 +156,7 @@ class WebRTCViewModel with ChangeNotifier {
             ),
           );
           _setupSignalingListeners();
+          _webRTCRepository.requestUserList();
           break;
         case Error<String>():
           _updateState(
@@ -310,6 +311,51 @@ class WebRTCViewModel with ChangeNotifier {
           }
         })
         .addTo(_subscriptions);
+
+    // Remote hang up 리스너 개선
+    _listenForHangUpUseCase
+        .call()
+        .listen((fromId) async {
+          debugPrint('[ViewModel] Remote peer $fromId hung up.');
+          if (_state.remotePeerId == fromId) {
+            await _handleRemoteHangUp();
+          }
+        })
+        .addTo(_subscriptions);
+  }
+
+  // 2. 원격 통화 종료 처리 함수
+  Future<void> _handleRemoteHangUp() async {
+    debugPrint('[ViewModel] Handling remote hang up');
+
+    // 상태 업데이트
+    _updateState(
+      _state.copyWith(
+        screenState: AppScreenState.lobby,
+        remotePeerId: null,
+        incomingOffer: null,
+        audioOnlyCall: false,
+        localVideoEnabled: false,
+        remoteVideoVisible: false,
+        errorMessage: 'Call ended by remote peer',
+      ),
+    );
+
+    // 리소스 정리
+    await _cleanupCall();
+
+    // 사용자 목록 새로고침
+    _webRTCRepository.requestUserList();
+  }
+
+  // 3. 자동 재연결 함수
+  void _attemptReconnection() {
+    Timer(const Duration(seconds: 3), () {
+      if (_state.screenState == AppScreenState.error) {
+        debugPrint('[ViewModel] Attempting to reconnect...');
+        init();
+      }
+    });
   }
 
   // region Call Actions
@@ -321,51 +367,74 @@ class WebRTCViewModel with ChangeNotifier {
         remotePeerId: user.id,
         audioOnlyCall: audioOnly,
         screenState: AppScreenState.loading,
-        // Indicate calling state
         localVideoEnabled: !audioOnly,
-        // Set initial local video state
-        remoteVideoVisible: false, // Reset remote video visibility
+        remoteVideoVisible: false,
+        // Reset remote video visibility
+        errorMessage: null,
       ),
     );
+    try {
+      // 1. 통화 초기화 (리스너 설정 포함)
+      debugPrint('[ViewModel] Initializing call...');
+      await _initializeCall(audioOnly: audioOnly);
 
-    await _initializeCall(audioOnly: audioOnly);
+      if (_peerConnection == null || localStream == null) {
+        throw Exception('Failed to initialize peer connection or local stream');
+      }
 
-    if (_peerConnection == null || localStream == null) {
+      // 2. 초기화 완료 후 추가 대기 (네트워크 안정화)
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      debugPrint('[ViewModel] Creating SDP offer...');
+
+      // 3. SDP Offer 생성
+      final offerResult = await _createSdpOfferUseCase.call(_peerConnection!);
+
+      switch (offerResult) {
+        case Success<RTCSessionDescription>():
+          final offer = offerResult.data;
+
+          debugPrint('[ViewModel] Setting local description...');
+          await _setLocalDescriptionUseCase.call(_peerConnection!, offer);
+
+          // 4. Local description 설정 후 약간의 대기
+          await Future.delayed(const Duration(milliseconds: 100));
+
+          debugPrint('[ViewModel] Sending call offer to ${user.id}...');
+          _callPeerUseCase.call(
+            CallOfferModel(
+              fromId: _state.myId!,
+              toId: user.id,
+              sdp: offer.sdp!,
+              type: offer.type!,
+              audioOnly: audioOnly,
+            ),
+          );
+
+          // 5. 상태를 loading으로 유지 (답변 대기)
+          debugPrint('[ViewModel] Call offer sent, waiting for answer...');
+          _updateState(
+            _state.copyWith(
+              screenState: AppScreenState.loading, // inCall이 아닌 loading으로
+              errorMessage: null,
+            ),
+          );
+
+          break;
+
+        case Error<RTCSessionDescription>():
+          throw Exception('Failed to create offer: ${offerResult.message}');
+      }
+    } catch (e) {
+      debugPrint('[ViewModel] Error in callUser: $e');
       _updateState(
         _state.copyWith(
-          errorMessage: 'Failed to initialize peer connection or local stream.',
+          errorMessage: 'Failed to start call: $e',
           screenState: AppScreenState.lobby,
         ),
       );
-      return;
-    }
-
-    final offerResult = await _createSdpOfferUseCase.call(_peerConnection!);
-
-    switch (offerResult) {
-      case Success<RTCSessionDescription>():
-        final offer = offerResult.data;
-        await _setLocalDescriptionUseCase.call(_peerConnection!, offer);
-        _callPeerUseCase.call(
-          CallOfferModel(
-            fromId: _state.myId!,
-            toId: user.id,
-            sdp: offer.sdp!,
-            type: offer.type!,
-            audioOnly: audioOnly,
-          ),
-        );
-        // _updateState(_state.copyWith(screenState: AppScreenState.inCall));
-        break;
-      case Error<RTCSessionDescription>():
-        _updateState(
-          _state.copyWith(
-            errorMessage: 'Failed to create offer: ${offerResult.message}',
-            screenState: AppScreenState.lobby,
-          ),
-        );
-        _cleanupCall();
-        break;
+      _cleanupCall();
+      rethrow;
     }
   }
 
@@ -396,6 +465,13 @@ class WebRTCViewModel with ChangeNotifier {
         ),
       );
       return;
+    }
+
+    // 마이크 기본 활성화
+    final audioTracks = localStream!.getAudioTracks();
+    if (audioTracks.isNotEmpty) {
+      audioTracks.first.enabled = true;
+      debugPrint('[ViewModel] Audio track enabled for incoming call');
     }
 
     try {
@@ -453,7 +529,7 @@ class WebRTCViewModel with ChangeNotifier {
               screenState: AppScreenState.lobby,
             ),
           );
-          _cleanupCall();
+          await _cleanupCall();
           break;
       }
     } catch (e) {
@@ -464,7 +540,7 @@ class WebRTCViewModel with ChangeNotifier {
           screenState: AppScreenState.lobby,
         ),
       );
-      _cleanupCall();
+      await _cleanupCall();
     }
   }
 
@@ -481,124 +557,225 @@ class WebRTCViewModel with ChangeNotifier {
       _hangUpCallUseCase.call(_state.myId!, _state.remotePeerId!);
     }
     _resetState();
-    _cleanupCall();
+    await _cleanupCall();
+    // 사용자 목록 새로고침 요청
+    _webRTCRepository.requestUserList();
   }
 
   // endregion
 
   // region Media Control
-
   Future<void> _initializeCall({required bool audioOnly}) async {
-    // 1. Get local media stream
-    final mediaResult = await _turnOnLocalMediaStreamUseCase.call(
-      audioOnly: audioOnly,
-      localRenderer: localRenderer,
-    );
-    switch (mediaResult) {
-      case Success<MediaStream>():
-        localStream = mediaResult.data; // Assign to localStream
-        localRenderer.srcObject = localStream;
-        _updateState(_state.copyWith(localVideoEnabled: !audioOnly));
-        // 2. Create Peer Connection
-        final peerConnectionResult = await _createPeerConnectionUseCase.call();
-        switch (peerConnectionResult) {
-          case Success<RTCPeerConnection>():
-            _peerConnection = peerConnectionResult.data;
-            _setupPeerConnectionListeners(_peerConnection!);
+    try {
+      debugPrint(
+        '[ViewModel] Getting local media stream, audioOnly: $audioOnly',
+      );
 
-            // Add local stream tracks to peer connection
-            if (localStream != null) {
-              _addTrackToPeerUseCase.call(localStream!, _peerConnection!);
-            }
+      // 1. Get local media stream
+      final mediaResult = await _turnOnLocalMediaStreamUseCase.call(
+        audioOnly: audioOnly,
+        localRenderer: localRenderer,
+      );
 
-            break;
-          case Error<RTCPeerConnection>():
-            _updateState(
-              _state.copyWith(
-                errorMessage:
-                    "Failed to create peer connection: ${peerConnectionResult.message}",
-                screenState: AppScreenState.error,
-              ),
+      switch (mediaResult) {
+        case Success<MediaStream>():
+          localStream = mediaResult.data;
+          // 오디오 트랙 활성화 확인
+          final audioTracks = localStream!.getAudioTracks();
+          if (audioTracks.isNotEmpty) {
+            audioTracks.first.enabled = true; // 오디오 트랙 활성화
+            debugPrint(
+              '[ViewModel] Local audio track enabled: ${audioTracks.first.enabled}',
             );
-            _cleanupCall(); // Cleanup if PC creation fails
-            return;
-        }
-      case Error<MediaStream>():
-        _updateState(
-          _state.copyWith(
-            errorMessage: "Toggle media failed: ${mediaResult.message}",
-          ),
-        );
+          }
+
+          // 비디오 트랙 설정
+          final videoTracks = localStream!.getVideoTracks();
+          if (videoTracks.isNotEmpty && !audioOnly) {
+            videoTracks.first.enabled = true;
+            debugPrint(
+              '[ViewModel] Local video track enabled: ${videoTracks.first.enabled}',
+            );
+          }
+          localRenderer.srcObject = localStream;
+          _updateState(_state.copyWith(localVideoEnabled: !audioOnly));
+          debugPrint('[ViewModel] Local media stream obtained successfully');
+
+          // 2. Create Peer Connection
+          debugPrint('[ViewModel] Creating peer connection...');
+          final peerConnectionResult = await _createPeerConnectionUseCase
+              .call();
+
+          switch (peerConnectionResult) {
+            case Success<RTCPeerConnection>():
+              _peerConnection = peerConnectionResult.data;
+              debugPrint('[ViewModel] Peer connection created successfully');
+
+              // 3. 리스너 설정을 가장 먼저 (트랙 추가 전에)
+              _setupPeerConnectionListeners(_peerConnection!);
+              // 4. Add local stream tracks to peer connection
+              if (localStream != null) {
+                debugPrint(
+                  '[ViewModel] Adding local tracks to peer connection...',
+                );
+                _addTrackToPeerUseCase.call(localStream!, _peerConnection!);
+
+                // 트랙 추가 후 지연
+                await Future.delayed(const Duration(milliseconds: 200));
+                debugPrint('[ViewModel] Local tracks added to peer connection');
+              }
+              break;
+
+            case Error<RTCPeerConnection>():
+              throw Exception(
+                'Failed to create peer connection: ${peerConnectionResult.message}',
+              );
+          }
+          break;
+
+        case Error<MediaStream>():
+          throw Exception('Failed to get media stream: ${mediaResult.message}');
+      }
+    } catch (e) {
+      debugPrint('[ViewModel] Error in _initializeCall: $e');
+      rethrow;
     }
   }
 
   void _setupPeerConnectionListeners(RTCPeerConnection peerConnection) {
-    // On ICE Candidate
-    _webRTCRepository
-        .getOnIceCandidateStream(peerConnection)
-        .listen((candidate) {
-          if (_state.remotePeerId != null && _state.myId != null) {
-            _sendIceCandidateUseCase.call(
-              IceCandidateInfoModel(
-                from: _state.myId!,
-                to: _state.remotePeerId!,
-                candidate: candidate.candidate!,
-                sdpMid: candidate.sdpMid!,
-                sdpMLineIndex: candidate.sdpMLineIndex!,
-              ),
+    debugPrint('[ViewModel] Setting up peer connection listeners...');
+
+    try {
+      // 1. ICE Candidate 리스너
+      peerConnection.onIceCandidate = (RTCIceCandidate candidate) {
+        debugPrint(
+          '[ViewModel] ICE Candidate generated: ${candidate.candidate}',
+        );
+        if (_state.remotePeerId != null && _state.myId != null) {
+          _sendIceCandidateUseCase.call(
+            IceCandidateInfoModel(
+              from: _state.myId!,
+              to: _state.remotePeerId!,
+              candidate: candidate.candidate!,
+              sdpMid: candidate.sdpMid!,
+              sdpMLineIndex: candidate.sdpMLineIndex!,
+            ),
+          );
+        }
+      };
+
+      // 2. Track 리스너 - 더 강화된 처리
+      peerConnection.onTrack = (RTCTrackEvent event) {
+        debugPrint('[ViewModel] ========== onTrack event triggered ==========');
+        debugPrint('[ViewModel] Track kind: ${event.track.kind}');
+        debugPrint('[ViewModel] Track enabled: ${event.track.enabled}');
+        debugPrint('[ViewModel] Streams count: ${event.streams.length}');
+
+        if (event.streams.isNotEmpty) {
+          final stream = event.streams.first;
+          debugPrint('[ViewModel] Remote stream received - ID: ${stream.id}');
+
+          // 기존 remote stream 정리
+          if (remoteStream != null) {
+            remoteStream!.dispose();
+          }
+          // Remote stream 설정
+          remoteStream = stream;
+
+          // 비디오 트랙 확인
+          final videoTracks = stream.getVideoTracks();
+          final audioTracks = stream.getAudioTracks();
+
+          debugPrint('[ViewModel] Video tracks: ${videoTracks.length}');
+          debugPrint('[ViewModel] Audio tracks: ${audioTracks.length}');
+
+          // 비디오 트랙이 있는지 확인
+          bool hasVideoTrack = false;
+          if (videoTracks.isNotEmpty) {
+            final videoTrack = videoTracks.first;
+            hasVideoTrack = videoTrack.enabled;
+            debugPrint(
+              '[ViewModel] Video track enabled: ${videoTrack.enabled}',
             );
           }
-        })
-        .addTo(_subscriptions);
 
-    // On Track (remote stream)
-    _webRTCRepository
-        .getOnTrackStream(peerConnection, remoteRenderer)
-        .listen((stream) {
-      debugPrint(
-        '[ViewModel] Remote track received, Stream ID: ${stream.id}',
-      );
-      remoteStream = stream; // Assign to remoteStream
-      remoteRenderer.srcObject = stream;
-      _updateState(_state.copyWith(remoteVideoVisible: true));
-    })
-        .addTo(_subscriptions);
-
-    // // On Track (remote stream)
-    // peerConnection.onTrack = (RTCTrackEvent event) {
-    //   debugPrint(
-    //     '[ViewModel] onTrack event received. Track kind: ${event.track.kind}, Stream ID: ${event.streams.first.id}',
-    //   );
-    //   if (event.track.kind == 'video' && event.streams.isNotEmpty) {
-    //     remoteStream = event.streams[0];
-    //     remoteRenderer.srcObject = remoteStream;
-    //     _updateState(_state.copyWith(remoteVideoVisible: true));
-    //     debugPrint('[ViewModel] Remote video track added, remoteRenderer srcObject set.');
-    //   } else if (event.track.kind == 'audio' && event.streams.isNotEmpty) {
-    //     // Handle audio tracks if needed, though they don't need a renderer
-    //     debugPrint('[ViewModel] Remote audio track added.');
-    //   }
-    // };
-
-    // On Connection State Change
-    _webRTCRepository
-        .getOnConnectionStateStream(peerConnection)
-        .listen((state) async {
-          debugPrint('[ViewModel] Peer connection state changed: $state');
-          // Handle connection state changes (e.g., connected, disconnected, failed)
-          if (state ==
-                  RTCPeerConnectionState.RTCPeerConnectionStateDisconnected ||
-              state == RTCPeerConnectionState.RTCPeerConnectionStateClosed ||
-              state == RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
-            if (_state.screenState == AppScreenState.inCall) {
-              await hangUp(); // Automatically hang up on disconnection/failure
-            }
-          } else if (state ==
-              RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
-            debugPrint('[ViewModel] Peer connection established!');
+          // 오디오 트랙 확인 및 활성화
+          if (audioTracks.isNotEmpty) {
+            final audioTrack = audioTracks.first;
+            audioTrack.enabled = true; // 오디오 트랙 활성화
+            debugPrint(
+              '[ViewModel] Audio track enabled: ${audioTrack.enabled}',
+            );
           }
-        })
-        .addTo(_subscriptions);
+
+          // UI 스레드에서 renderer 업데이트
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            try {
+              remoteRenderer.srcObject = stream;
+              debugPrint('[ViewModel] Remote renderer srcObject set');
+
+              // 상태 업데이트
+              _updateState(_state.copyWith(remoteVideoVisible: hasVideoTrack));
+
+              // 강제로 renderer 새로고침
+              remoteRenderer.notifyListeners();
+            } catch (e) {
+              debugPrint('[ViewModel] Error setting remote renderer: $e');
+            }
+          });
+        }
+      };
+
+      // 3. Connection State 리스너
+      peerConnection.onConnectionState = (RTCPeerConnectionState state) async {
+        debugPrint('[ViewModel] Connection state changed: $state');
+
+        switch (state) {
+          case RTCPeerConnectionState.RTCPeerConnectionStateConnected:
+            debugPrint('[ViewModel] Peer connection established successfully!');
+            // 연결 완료 후 renderer 상태 재확인
+            if (remoteStream != null) {
+              remoteRenderer.srcObject = remoteStream;
+            }
+            break;
+          case RTCPeerConnectionState.RTCPeerConnectionStateDisconnected:
+          case RTCPeerConnectionState.RTCPeerConnectionStateClosed:
+          case RTCPeerConnectionState.RTCPeerConnectionStateFailed:
+            debugPrint('[ViewModel] Connection lost or failed: $state');
+            if (_state.screenState == AppScreenState.inCall) {
+              await hangUp();
+            }
+            break;
+          default:
+            break;
+        }
+      };
+
+      // 4. ICE Connection State 리스너
+      peerConnection.onIceConnectionState = (RTCIceConnectionState state) {
+        debugPrint('[ViewModel] ICE Connection state: $state');
+
+        // ICE 연결 완료 시에도 한번 더 체크
+        if (state == RTCIceConnectionState.RTCIceConnectionStateConnected) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            debugPrint('[ViewModel] ICE Connected - Final renderer check');
+            if (remoteRenderer.srcObject != null) {
+              debugPrint(
+                '[ViewModel] Remote renderer has stream after ICE connection',
+              );
+            } else {
+              debugPrint(
+                '[ViewModel] WARNING: Remote renderer still null after ICE connection',
+              );
+            }
+          });
+        }
+      };
+
+      debugPrint('[ViewModel] Peer connection listeners setup completed');
+    } catch (e) {
+      debugPrint('[ViewModel] Error setting up peer connection listeners: $e');
+    }
   }
 
   Future<void> toggleMicrophone() async {
@@ -606,13 +783,10 @@ class WebRTCViewModel with ChangeNotifier {
       final audioTrack = localStream!.getAudioTracks().firstOrNull;
       if (audioTrack != null) {
         audioTrack.enabled = !audioTrack.enabled;
-        // The audioOnlyCall state might represent if video is OFF.
-        // For mic mute, we usually have a separate state.
-        // For simplicity, we just toggle the track's enabled state.
         debugPrint(
           "[ViewModel] Local audio track enabled: ${audioTrack.enabled}",
         );
-        notifyListeners(); // Notify UI for mic icon change
+        notifyListeners();
       }
     }
   }
@@ -668,41 +842,64 @@ class WebRTCViewModel with ChangeNotifier {
 
   void clearCallViewContext() => _callViewContext = null;
 
-  void _cleanupCall() {
+  Future<void> _cleanupCall() async {
     debugPrint("[ViewModel] Cleaning up call resources.");
-    // Cancel all current streams and dispose resources
+
+    // 스트림 구독 취소
     for (var sub in _subscriptions) {
       sub.cancel();
     }
     _subscriptions.clear();
 
+    // Peer connection 정리
     if (_peerConnection != null) {
-      _closePeerConnectionUseCase.call(
-        _peerConnection!,
-        localStream,
-        localRenderer,
-      );
+      try {
+        await _closePeerConnectionUseCase.call(
+          _peerConnection!,
+          localStream,
+          localRenderer,
+        );
+      } catch (e) {
+        debugPrint('[ViewModel] Error closing peer connection: $e');
+      }
       _peerConnection = null;
     }
 
+    // 미디어 스트림 정리
     if (localStream != null) {
-      _turnOffMediaStreamUseCase.call(localStream!, localRenderer);
+      try {
+        _turnOffMediaStreamUseCase.call(localStream!, localRenderer);
+      } catch (e) {
+        debugPrint('[ViewModel] Error turning off local stream: $e');
+      }
       localStream = null;
     }
+
     if (remoteStream != null) {
-      _turnOffMediaStreamUseCase.call(remoteStream!, remoteRenderer);
+      try {
+        _turnOffMediaStreamUseCase.call(remoteStream!, remoteRenderer);
+      } catch (e) {
+        debugPrint('[ViewModel] Error turning off remote stream: $e');
+      }
       remoteStream = null;
     }
 
-    // Clear renderers' srcObject
-    localRenderer.srcObject = null;
-    remoteRenderer.srcObject = null;
+    // 렌더러 정리
+    try {
+      localRenderer.srcObject = null;
+      remoteRenderer.srcObject = null;
+    } catch (e) {
+      debugPrint('[ViewModel] Error clearing renderers: $e');
+    }
 
-    // Pop the call view if it's still active
+    // Call view 팝
     if (_callViewContext != null && Navigator.canPop(_callViewContext!)) {
       Navigator.pop(_callViewContext!);
     }
     _callViewContext = null;
+
+    // 시그널링 리스너 다시 설정
+    _setupSignalingListeners();
   }
 
   void _resetState() {
@@ -726,17 +923,39 @@ class WebRTCViewModel with ChangeNotifier {
   @override
   void dispose() {
     debugPrint("[ViewModel] Disposing ViewModel.");
+
+    // 통화 종료 시그널 전송 (연결되어 있다면)
+    if (_state.remotePeerId != null && _state.myId != null) {
+      try {
+        _hangUpCallUseCase.call(_state.myId!, _state.remotePeerId!);
+      } catch (e) {
+        debugPrint('[ViewModel] Error sending hang up signal: $e');
+      }
+    }
+
+    // 구독 취소
     for (var sub in _subscriptions) {
       sub.cancel();
     }
     _subscriptions.clear();
 
-    _disconnectSignalingUseCase.call(); // Disconnect signaling
-    _cleanupCall(); // Ensure all call resources are cleaned up
+    // 시그널링 연결 해제
+    try {
+      _disconnectSignalingUseCase.call();
+    } catch (e) {
+      debugPrint('[ViewModel] Error disconnecting signaling: $e');
+    }
 
-    // Dispose renderers
-    localRenderer.dispose();
-    remoteRenderer.dispose();
+    // 리소스 정리
+    _cleanupCall();
+
+    // 렌더러 해제
+    try {
+      localRenderer.dispose();
+      remoteRenderer.dispose();
+    } catch (e) {
+      debugPrint('[ViewModel] Error disposing renderers: $e');
+    }
 
     super.dispose();
   }
