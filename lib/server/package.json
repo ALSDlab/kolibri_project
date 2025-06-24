@@ -1,0 +1,21 @@
+{
+  "name": "webrtc_test",
+  "version": "1.0.0",
+  "main": "webrtc_server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "http": "^0.0.1-security",
+    "ip": "^2.0.1",
+    "redis": "^5.5.6",
+    "socket.io": "^4.8.1",
+    "socket.io-redis": "^6.1.1"
+  }
+}
