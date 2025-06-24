@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 import 'package:kolibri_project/view/navigation/navigation_bar_page.dart';
 import 'package:kolibri_project/view/navigation/navigation_bar_page_view_model.dart';
 import 'package:kolibri_project/view/pages/splash_page/splash_page.dart';
-import 'package:kolibri_project/view/pages/webrtc_page/webrtc_call_page.dart';
 import 'package:kolibri_project/view/pages/webrtc_page/webrtc_page.dart';
 import 'package:kolibri_project/view/pages/webrtc_page/webrtc_page_view_model.dart';
 import 'package:provider/provider.dart';
@@ -40,17 +39,15 @@ final router = GoRouter(
     //         builder: (context, state) => const LoginPage(),
     //       ),
     //     ]),
-    GoRoute(
-      path: '/webrtc_call_page',
-      builder: (context, state) {
-        // final extra = state.extra! as Map<String, dynamic>;
-        final viewModel = state.extra as WebRTCViewModel;
-        return ChangeNotifierProvider.value(
-          value: viewModel,
-          child: WebrtcCallPage(),
-        );
-      },
-    ),
+    // GoRoute(
+    //   path: '/webrtc_call_page',
+    //   builder: (context, state) {
+    //     return ChangeNotifierProvider(
+    //       create: (context) => getIt<WebrtcPageViewModel>(),
+    //       child: WebrtcCallPage(),
+    //     );
+    //   },
+    // ),
     // GoRoute(
     //   path: '/selected_wg_data_page',
     //   builder: (context, state) {
@@ -75,112 +72,103 @@ final router = GoRouter(
     //   },
     // ),
     ShellRoute(
-        navigatorKey: _shellNavigatorKey,
-        pageBuilder: (context, state, child) {
-          return NoTransitionPage(
-            child: MultiProvider(
-              providers: [
-                ChangeNotifierProvider(
-                  create: (_) => getIt<NavigationBarPageViewModel>(),
-                ),
-                // ChangeNotifierProvider(
-                //   create: (_) => getIt<ChatPageViewModel>(),
-                //   lazy: false,
-                // ),
-                // ChangeNotifierProvider(
-                //   create: (_) => getIt<ChatListPageViewModel>(),
-                // ),
-              ],
-              child: NavigationBarPage(
-                location: state.matchedLocation,
-                child: child,
+      navigatorKey: _shellNavigatorKey,
+      pageBuilder: (context, state, child) {
+        return NoTransitionPage(
+          child: MultiProvider(
+            providers: [
+              ChangeNotifierProvider(
+                create: (_) => getIt<NavigationBarPageViewModel>(),
               ),
+              // ChangeNotifierProvider(
+              //   create: (_) => getIt<ChatPageViewModel>(),
+              //   lazy: false,
+              // ),
+              // ChangeNotifierProvider(
+              //   create: (_) => getIt<ChatListPageViewModel>(),
+              // ),
+            ],
+            child: NavigationBarPage(
+              location: state.matchedLocation,
+              child: child,
             ),
-          );
-        },
-        routes: [
-          GoRoute(
-            path: '/webrtc_page',
-            builder: (context, state) {
-              // final navigationViewModel =
-              // Provider.of<NavigationBarPageViewModel>(context,
-              //     listen: false);
-              // final chatListPageViewModel =
-              // Provider.of<ChatListPageViewModel>(context, listen: false);
-              return ChangeNotifierProvider(
-                create: (_) => getIt<WebRTCViewModel>(),
-                child: WebrtcPage(
-                  // resetNavigation: navigationViewModel.resetNavigation,
-                  // resetChatList: chatListPageViewModel.resetChatList,
-                ),
-              );
-            },
           ),
-          // GoRoute(
-          //   path: '/upload_WG_page',
-          //   builder: (context, state) {
-          //     // final navigationViewModel =
-          //     //     Provider.of<NavigationBarPageViewModel>(context,
-          //     //         listen: false);
-          //     return ChangeNotifierProvider(
-          //       create: (_) => getIt<UploadWGPageViewModel>(),
-          //       child: const UploadWGPage(
-          //         // resetNavigation: navigationViewModel.resetNavigation,
-          //       ),
-          //     );
-          //   },
-          // ),
-          // GoRoute(
-          //   path: '/history_page',
-          //   builder: (context, state) {
-          //     final navigationViewModel =
-          //     Provider.of<NavigationBarPageViewModel>(context,
-          //         listen: false);
-          //     return ChangeNotifierProvider(
-          //       create: (_) => getIt<MyHistoryPageViewModel>(),
-          //       child: MyHistoryPage(
-          //         resetNavigation: navigationViewModel.resetNavigation,
-          //       ),
-          //     );
-          //   },
-          // ),
-          // GoRoute(
-          //   path: '/chat_list_page',
-          //   builder: (context, state) {
-          //     final extra = state.extra! as Map<String, dynamic>;
-          //     return MultiProvider(
-          //       providers: [
-          //         ChangeNotifierProvider.value(
-          //           // 기존 ViewModel 인스턴스 유지
-          //           value: context.read<NavigationBarPageViewModel>(),
-          //         ),
-          //         ChangeNotifierProvider(
-          //           create: (_) => getIt<ChatListPageViewModel>(),
-          //         ),
-          //       ],
-          //       child: ChatListPage(
-          //         resetNavigation: extra['resetNavigation'],
-          //         resetChatList: extra['resetChatList'],
-          //       ),
-          //     );
-          //   },
-          // ),
-          // GoRoute(
-          //   path: '/setting_page',
-          //   builder: (context, state) {
-          //     final navigationViewModel =
-          //     Provider.of<NavigationBarPageViewModel>(context,
-          //         listen: false);
-          //     return ChangeNotifierProvider(
-          //       create: (_) {
-          //         return getIt<SettingPageViewModel>();
-          //       },
-          //       child: SettingPage(
-          //         resetNavigation: navigationViewModel.resetNavigation,
-          //       ),
-          //     );
-          //   },
-          // ),
-        ]),
+        );
+      },
+      routes: [
+        GoRoute(
+          path: '/webrtc_page',
+          builder: (context, state) => ChangeNotifierProvider(
+            create: (_) => getIt<WebrtcPageViewModel>(),
+            child: WebrtcPage(),
+          ),
+        ),
+        // GoRoute(
+        //   path: '/upload_WG_page',
+        //   builder: (context, state) {
+        //     // final navigationViewModel =
+        //     //     Provider.of<NavigationBarPageViewModel>(context,
+        //     //         listen: false);
+        //     return ChangeNotifierProvider(
+        //       create: (_) => getIt<UploadWGPageViewModel>(),
+        //       child: const UploadWGPage(
+        //         // resetNavigation: navigationViewModel.resetNavigation,
+        //       ),
+        //     );
+        //   },
+        // ),
+        // GoRoute(
+        //   path: '/history_page',
+        //   builder: (context, state) {
+        //     final navigationViewModel =
+        //     Provider.of<NavigationBarPageViewModel>(context,
+        //         listen: false);
+        //     return ChangeNotifierProvider(
+        //       create: (_) => getIt<MyHistoryPageViewModel>(),
+        //       child: MyHistoryPage(
+        //         resetNavigation: navigationViewModel.resetNavigation,
+        //       ),
+        //     );
+        //   },
+        // ),
+        // GoRoute(
+        //   path: '/chat_list_page',
+        //   builder: (context, state) {
+        //     final extra = state.extra! as Map<String, dynamic>;
+        //     return MultiProvider(
+        //       providers: [
+        //         ChangeNotifierProvider.value(
+        //           // 기존 ViewModel 인스턴스 유지
+        //           value: context.read<NavigationBarPageViewModel>(),
+        //         ),
+        //         ChangeNotifierProvider(
+        //           create: (_) => getIt<ChatListPageViewModel>(),
+        //         ),
+        //       ],
+        //       child: ChatListPage(
+        //         resetNavigation: extra['resetNavigation'],
+        //         resetChatList: extra['resetChatList'],
+        //       ),
+        //     );
+        //   },
+        // ),
+        // GoRoute(
+        //   path: '/setting_page',
+        //   builder: (context, state) {
+        //     final navigationViewModel =
+        //     Provider.of<NavigationBarPageViewModel>(context,
+        //         listen: false);
+        //     return ChangeNotifierProvider(
+        //       create: (_) {
+        //         return getIt<SettingPageViewModel>();
+        //       },
+        //       child: SettingPage(
+        //         resetNavigation: navigationViewModel.resetNavigation,
+        //       ),
+        //     );
+        //   },
+        // ),
+      ],
+    ),
   ],
 );
