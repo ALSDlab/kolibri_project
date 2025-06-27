@@ -4,7 +4,7 @@ part 'edit_profile_page_state.freezed.dart';
 part 'edit_profile_page_state.g.dart';
 
 @freezed
-abstract class EditProfilePageState with _$EditProfilePageState {
+class EditProfilePageState with _$EditProfilePageState {
   const factory EditProfilePageState({
     @Default(false) bool isLoading,
     @Default(false) bool isThumbnailLoading,
@@ -16,8 +16,8 @@ abstract class EditProfilePageState with _$EditProfilePageState {
     @Default('') String imageUrl,
     @Default(false) bool isEmailValid,
     @Default(false) bool isEmailVerified,
-
+    
   }) = _EditProfilePageState;
-
-  factory EditProfilePageState.fromJson(Map<String, dynamic> json) => _$EditProfilePageStateFromJson(json);
+  
+  factory EditProfilePageState.fromJson(Map<String, dynamic> json) => _$EditProfilePageStateFromJson(json); 
 }

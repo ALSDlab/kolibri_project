@@ -1,4 +1,3 @@
-// dart format width=80
 // coverage:ignore-file
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint
@@ -10,151 +9,282 @@ part of 'login_page_state.dart';
 // FreezedGenerator
 // **************************************************************************
 
-// dart format off
 T _$identity<T>(T value) => value;
+
+final _privateConstructorUsedError = UnsupportedError(
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
+
+LoginPageState _$LoginPageStateFromJson(Map<String, dynamic> json) {
+  return _LoginPageState.fromJson(json);
+}
 
 /// @nodoc
 mixin _$LoginPageState {
+  bool get isLoading => throw _privateConstructorUsedError;
 
- bool get isLoading; bool get loginCheck; bool get isDialogShowing; String get errorEmailText; String get errorPasswordText;
-/// Create a copy of LoginPageState
-/// with the given fields replaced by the non-null parameter values.
-@JsonKey(includeFromJson: false, includeToJson: false)
-@pragma('vm:prefer-inline')
-$LoginPageStateCopyWith<LoginPageState> get copyWith => _$LoginPageStateCopyWithImpl<LoginPageState>(this as LoginPageState, _$identity);
+  bool get loginCheck => throw _privateConstructorUsedError;
+
+  bool get isDialogShowing => throw _privateConstructorUsedError;
+
+  String get errorEmailText => throw _privateConstructorUsedError;
+
+  String get errorPasswordText => throw _privateConstructorUsedError;
 
   /// Serializes this LoginPageState to a JSON map.
-  Map<String, dynamic> toJson();
+  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
 
-
-@override
-bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is LoginPageState&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading)&&(identical(other.loginCheck, loginCheck) || other.loginCheck == loginCheck)&&(identical(other.isDialogShowing, isDialogShowing) || other.isDialogShowing == isDialogShowing)&&(identical(other.errorEmailText, errorEmailText) || other.errorEmailText == errorEmailText)&&(identical(other.errorPasswordText, errorPasswordText) || other.errorPasswordText == errorPasswordText));
-}
-
-@JsonKey(includeFromJson: false, includeToJson: false)
-@override
-int get hashCode => Object.hash(runtimeType,isLoading,loginCheck,isDialogShowing,errorEmailText,errorPasswordText);
-
-@override
-String toString() {
-  return 'LoginPageState(isLoading: $isLoading, loginCheck: $loginCheck, isDialogShowing: $isDialogShowing, errorEmailText: $errorEmailText, errorPasswordText: $errorPasswordText)';
-}
-
-
+  /// Create a copy of LoginPageState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  $LoginPageStateCopyWith<LoginPageState> get copyWith =>
+      throw _privateConstructorUsedError;
 }
 
 /// @nodoc
-abstract mixin class $LoginPageStateCopyWith<$Res>  {
-  factory $LoginPageStateCopyWith(LoginPageState value, $Res Function(LoginPageState) _then) = _$LoginPageStateCopyWithImpl;
-@useResult
-$Res call({
- bool isLoading, bool loginCheck, bool isDialogShowing, String errorEmailText, String errorPasswordText
-});
+abstract class $LoginPageStateCopyWith<$Res> {
+  factory $LoginPageStateCopyWith(
+    LoginPageState value,
+    $Res Function(LoginPageState) then,
+  ) = _$LoginPageStateCopyWithImpl<$Res, LoginPageState>;
 
-
-
-
+  @useResult
+  $Res call({
+    bool isLoading,
+    bool loginCheck,
+    bool isDialogShowing,
+    String errorEmailText,
+    String errorPasswordText,
+  });
 }
+
 /// @nodoc
-class _$LoginPageStateCopyWithImpl<$Res>
+class _$LoginPageStateCopyWithImpl<$Res, $Val extends LoginPageState>
     implements $LoginPageStateCopyWith<$Res> {
-  _$LoginPageStateCopyWithImpl(this._self, this._then);
+  _$LoginPageStateCopyWithImpl(this._value, this._then);
 
-  final LoginPageState _self;
-  final $Res Function(LoginPageState) _then;
+  // ignore: unused_field
+  final $Val _value;
 
-/// Create a copy of LoginPageState
-/// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? isLoading = null,Object? loginCheck = null,Object? isDialogShowing = null,Object? errorEmailText = null,Object? errorPasswordText = null,}) {
-  return _then(_self.copyWith(
-isLoading: null == isLoading ? _self.isLoading : isLoading // ignore: cast_nullable_to_non_nullable
-as bool,loginCheck: null == loginCheck ? _self.loginCheck : loginCheck // ignore: cast_nullable_to_non_nullable
-as bool,isDialogShowing: null == isDialogShowing ? _self.isDialogShowing : isDialogShowing // ignore: cast_nullable_to_non_nullable
-as bool,errorEmailText: null == errorEmailText ? _self.errorEmailText : errorEmailText // ignore: cast_nullable_to_non_nullable
-as String,errorPasswordText: null == errorPasswordText ? _self.errorPasswordText : errorPasswordText // ignore: cast_nullable_to_non_nullable
-as String,
-  ));
+  // ignore: unused_field
+  final $Res Function($Val) _then;
+
+  /// Create a copy of LoginPageState
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? isLoading = null,
+    Object? loginCheck = null,
+    Object? isDialogShowing = null,
+    Object? errorEmailText = null,
+    Object? errorPasswordText = null,
+  }) {
+    return _then(
+      _value.copyWith(
+            isLoading: null == isLoading
+                ? _value.isLoading
+                : isLoading // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            loginCheck: null == loginCheck
+                ? _value.loginCheck
+                : loginCheck // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            isDialogShowing: null == isDialogShowing
+                ? _value.isDialogShowing
+                : isDialogShowing // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            errorEmailText: null == errorEmailText
+                ? _value.errorEmailText
+                : errorEmailText // ignore: cast_nullable_to_non_nullable
+                      as String,
+            errorPasswordText: null == errorPasswordText
+                ? _value.errorPasswordText
+                : errorPasswordText // ignore: cast_nullable_to_non_nullable
+                      as String,
+          )
+          as $Val,
+    );
+  }
 }
 
+/// @nodoc
+abstract class _$$LoginPageStateImplCopyWith<$Res>
+    implements $LoginPageStateCopyWith<$Res> {
+  factory _$$LoginPageStateImplCopyWith(
+    _$LoginPageStateImpl value,
+    $Res Function(_$LoginPageStateImpl) then,
+  ) = __$$LoginPageStateImplCopyWithImpl<$Res>;
+
+  @override
+  @useResult
+  $Res call({
+    bool isLoading,
+    bool loginCheck,
+    bool isDialogShowing,
+    String errorEmailText,
+    String errorPasswordText,
+  });
 }
 
+/// @nodoc
+class __$$LoginPageStateImplCopyWithImpl<$Res>
+    extends _$LoginPageStateCopyWithImpl<$Res, _$LoginPageStateImpl>
+    implements _$$LoginPageStateImplCopyWith<$Res> {
+  __$$LoginPageStateImplCopyWithImpl(
+    _$LoginPageStateImpl _value,
+    $Res Function(_$LoginPageStateImpl) _then,
+  ) : super(_value, _then);
+
+  /// Create a copy of LoginPageState
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? isLoading = null,
+    Object? loginCheck = null,
+    Object? isDialogShowing = null,
+    Object? errorEmailText = null,
+    Object? errorPasswordText = null,
+  }) {
+    return _then(
+      _$LoginPageStateImpl(
+        isLoading: null == isLoading
+            ? _value.isLoading
+            : isLoading // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        loginCheck: null == loginCheck
+            ? _value.loginCheck
+            : loginCheck // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        isDialogShowing: null == isDialogShowing
+            ? _value.isDialogShowing
+            : isDialogShowing // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        errorEmailText: null == errorEmailText
+            ? _value.errorEmailText
+            : errorEmailText // ignore: cast_nullable_to_non_nullable
+                  as String,
+        errorPasswordText: null == errorPasswordText
+            ? _value.errorPasswordText
+            : errorPasswordText // ignore: cast_nullable_to_non_nullable
+                  as String,
+      ),
+    );
+  }
+}
 
 /// @nodoc
 @JsonSerializable()
+class _$LoginPageStateImpl implements _LoginPageState {
+  const _$LoginPageStateImpl({
+    this.isLoading = false,
+    this.loginCheck = false,
+    this.isDialogShowing = false,
+    this.errorEmailText = '',
+    this.errorPasswordText = '',
+  });
 
-class _LoginPageState implements LoginPageState {
-  const _LoginPageState({this.isLoading = false, this.loginCheck = false, this.isDialogShowing = false, this.errorEmailText = '', this.errorPasswordText = ''});
-  factory _LoginPageState.fromJson(Map<String, dynamic> json) => _$LoginPageStateFromJson(json);
+  factory _$LoginPageStateImpl.fromJson(Map<String, dynamic> json) =>
+      _$$LoginPageStateImplFromJson(json);
 
-@override@JsonKey() final  bool isLoading;
-@override@JsonKey() final  bool loginCheck;
-@override@JsonKey() final  bool isDialogShowing;
-@override@JsonKey() final  String errorEmailText;
-@override@JsonKey() final  String errorPasswordText;
+  @override
+  @JsonKey()
+  final bool isLoading;
+  @override
+  @JsonKey()
+  final bool loginCheck;
+  @override
+  @JsonKey()
+  final bool isDialogShowing;
+  @override
+  @JsonKey()
+  final String errorEmailText;
+  @override
+  @JsonKey()
+  final String errorPasswordText;
 
-/// Create a copy of LoginPageState
-/// with the given fields replaced by the non-null parameter values.
-@override @JsonKey(includeFromJson: false, includeToJson: false)
-@pragma('vm:prefer-inline')
-_$LoginPageStateCopyWith<_LoginPageState> get copyWith => __$LoginPageStateCopyWithImpl<_LoginPageState>(this, _$identity);
+  @override
+  String toString() {
+    return 'LoginPageState(isLoading: $isLoading, loginCheck: $loginCheck, isDialogShowing: $isDialogShowing, errorEmailText: $errorEmailText, errorPasswordText: $errorPasswordText)';
+  }
 
-@override
-Map<String, dynamic> toJson() {
-  return _$LoginPageStateToJson(this, );
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$LoginPageStateImpl &&
+            (identical(other.isLoading, isLoading) ||
+                other.isLoading == isLoading) &&
+            (identical(other.loginCheck, loginCheck) ||
+                other.loginCheck == loginCheck) &&
+            (identical(other.isDialogShowing, isDialogShowing) ||
+                other.isDialogShowing == isDialogShowing) &&
+            (identical(other.errorEmailText, errorEmailText) ||
+                other.errorEmailText == errorEmailText) &&
+            (identical(other.errorPasswordText, errorPasswordText) ||
+                other.errorPasswordText == errorPasswordText));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode => Object.hash(
+    runtimeType,
+    isLoading,
+    loginCheck,
+    isDialogShowing,
+    errorEmailText,
+    errorPasswordText,
+  );
+
+  /// Create a copy of LoginPageState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$LoginPageStateImplCopyWith<_$LoginPageStateImpl> get copyWith =>
+      __$$LoginPageStateImplCopyWithImpl<_$LoginPageStateImpl>(
+        this,
+        _$identity,
+      );
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$$LoginPageStateImplToJson(this);
+  }
 }
 
-@override
-bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _LoginPageState&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading)&&(identical(other.loginCheck, loginCheck) || other.loginCheck == loginCheck)&&(identical(other.isDialogShowing, isDialogShowing) || other.isDialogShowing == isDialogShowing)&&(identical(other.errorEmailText, errorEmailText) || other.errorEmailText == errorEmailText)&&(identical(other.errorPasswordText, errorPasswordText) || other.errorPasswordText == errorPasswordText));
+abstract class _LoginPageState implements LoginPageState {
+  const factory _LoginPageState({
+    final bool isLoading,
+    final bool loginCheck,
+    final bool isDialogShowing,
+    final String errorEmailText,
+    final String errorPasswordText,
+  }) = _$LoginPageStateImpl;
+
+  factory _LoginPageState.fromJson(Map<String, dynamic> json) =
+      _$LoginPageStateImpl.fromJson;
+
+  @override
+  bool get isLoading;
+
+  @override
+  bool get loginCheck;
+
+  @override
+  bool get isDialogShowing;
+
+  @override
+  String get errorEmailText;
+
+  @override
+  String get errorPasswordText;
+
+  /// Create a copy of LoginPageState
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$LoginPageStateImplCopyWith<_$LoginPageStateImpl> get copyWith =>
+      throw _privateConstructorUsedError;
 }
-
-@JsonKey(includeFromJson: false, includeToJson: false)
-@override
-int get hashCode => Object.hash(runtimeType,isLoading,loginCheck,isDialogShowing,errorEmailText,errorPasswordText);
-
-@override
-String toString() {
-  return 'LoginPageState(isLoading: $isLoading, loginCheck: $loginCheck, isDialogShowing: $isDialogShowing, errorEmailText: $errorEmailText, errorPasswordText: $errorPasswordText)';
-}
-
-
-}
-
-/// @nodoc
-abstract mixin class _$LoginPageStateCopyWith<$Res> implements $LoginPageStateCopyWith<$Res> {
-  factory _$LoginPageStateCopyWith(_LoginPageState value, $Res Function(_LoginPageState) _then) = __$LoginPageStateCopyWithImpl;
-@override @useResult
-$Res call({
- bool isLoading, bool loginCheck, bool isDialogShowing, String errorEmailText, String errorPasswordText
-});
-
-
-
-
-}
-/// @nodoc
-class __$LoginPageStateCopyWithImpl<$Res>
-    implements _$LoginPageStateCopyWith<$Res> {
-  __$LoginPageStateCopyWithImpl(this._self, this._then);
-
-  final _LoginPageState _self;
-  final $Res Function(_LoginPageState) _then;
-
-/// Create a copy of LoginPageState
-/// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? isLoading = null,Object? loginCheck = null,Object? isDialogShowing = null,Object? errorEmailText = null,Object? errorPasswordText = null,}) {
-  return _then(_LoginPageState(
-isLoading: null == isLoading ? _self.isLoading : isLoading // ignore: cast_nullable_to_non_nullable
-as bool,loginCheck: null == loginCheck ? _self.loginCheck : loginCheck // ignore: cast_nullable_to_non_nullable
-as bool,isDialogShowing: null == isDialogShowing ? _self.isDialogShowing : isDialogShowing // ignore: cast_nullable_to_non_nullable
-as bool,errorEmailText: null == errorEmailText ? _self.errorEmailText : errorEmailText // ignore: cast_nullable_to_non_nullable
-as String,errorPasswordText: null == errorPasswordText ? _self.errorPasswordText : errorPasswordText // ignore: cast_nullable_to_non_nullable
-as String,
-  ));
-}
-
-
-}
-
-// dart format on

@@ -4,7 +4,7 @@ part 'setting_page_state.freezed.dart';
 part 'setting_page_state.g.dart';
 
 @freezed
-abstract class SettingPageState with _$SettingPageState {
+class SettingPageState with _$SettingPageState {
   const factory SettingPageState({
     @Default(false) bool tapped,
     @Default(false) bool isLoading,

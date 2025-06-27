@@ -4,7 +4,7 @@ part 'login_page_state.freezed.dart';
 part 'login_page_state.g.dart';
 
 @freezed
-abstract class LoginPageState with _$LoginPageState {
+class LoginPageState with _$LoginPageState {
   const factory LoginPageState({
     @Default(false) bool isLoading,
     @Default(false) bool loginCheck,

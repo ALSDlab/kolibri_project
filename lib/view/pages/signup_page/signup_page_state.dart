@@ -4,7 +4,7 @@ part 'signup_page_state.freezed.dart';
 part 'signup_page_state.g.dart';
 
 @freezed
-abstract class SignupPageState with _$SignupPageState {
+class SignupPageState with _$SignupPageState {
   const factory SignupPageState({
     @Default(false) bool isLoading,
     @Default(false) bool isVerifying,
